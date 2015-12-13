@@ -1,10 +1,11 @@
 package main
 
 import (
-	_ "github.com/omarqazi/hearst/datastore"
 	"log"
 	"net/http"
 )
+
+// ye
 
 func main() {
 	log.Println("Starting hearst on :8080...")

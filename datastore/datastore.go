@@ -1,14 +1,14 @@
 package datastore
 
 import (
-	"database/sql"
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"log"
 )
 
 const connectionString = "dbname=hearst user=postgres password=postgres sslmode=disable"
 
-var PostgresDatabase *sql.DB = nil
+var PostgresDb *sqlx.DB = nil
 
 func init() {
 	ConnectPostgres()
@@ -16,7 +16,7 @@ func init() {
 
 func ConnectPostgres() {
 	var err error
-	PostgresDatabase, err = sql.Open("postgres", connectionString)
+	PostgresDb, err = sqlx.Open("postgres", connectionString)
 	if err != nil {
 		log.Fatalln("Error connecting to postgres:", err)
 	}
