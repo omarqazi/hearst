@@ -72,3 +72,23 @@ func TestUpdate(t *testing.T) {
 		return
 	}
 }
+
+func TestDelete(t *testing.T) {
+	TestInsert(t)
+	mb, err := GetMailbox(testObjectId)
+	if err != nil {
+		t.Error("Error getting mailbox for delete:", err)
+		return
+	}
+
+	if err := mb.Delete(); err != nil {
+		t.Error("Error deleting mailbox:", err)
+		return
+	}
+
+	mbx, erx := GetMailbox(testObjectId)
+	if erx == nil {
+		t.Error("Error: expected error getting deleted mailbox but it was still found", mbx)
+		return
+	}
+}

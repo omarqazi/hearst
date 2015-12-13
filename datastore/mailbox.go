@@ -2,6 +2,7 @@ package datastore
 
 import (
 	"code.google.com/p/go-uuid/uuid"
+	"errors"
 	"time"
 )
 
@@ -26,7 +27,7 @@ func GetMailbox(uuid string) (Mailbox, error) {
 		return mbx[0], nil
 	}
 
-	return Mailbox{}, nil
+	return Mailbox{}, errors.New("No mailbox found with that UUID")
 }
 
 // Function Insert executes an SQL insert statement
@@ -48,7 +49,20 @@ func (mb *Mailbox) Update() error {
 	tx := PostgresDb.MustBegin()
 	tx.NamedExec(`
 		update mailboxes set updatedat = now(), connectedat = now(),
-		public_key = :public_key, device_id = :device_id where id = :id
+		public_key = :public_key, device_id = :device_id where id = :id;
+	`, mb)
+	err := tx.Commit()
+	return err
+}
+
+func (mb *Mailbox) Delete() error {
+	if mb.Id == "" {
+		return errors.New("Cant delete mailbox with no UUID")
+	}
+
+	tx := PostgresDb.MustBegin()
+	tx.NamedExec(`
+		delete from mailboxes where id = :id;
 	`, mb)
 	err := tx.Commit()
 	return err
