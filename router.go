@@ -10,6 +10,7 @@ const staticPath = "www"
 var routes = map[string]http.Handler{
 	"/":         http.FileServer(http.Dir(staticPath)),
 	"/mailbox/": controller.MailboxController{},
+	"/thread/":  controller.ThreadController{},
 }
 
 func init() {
