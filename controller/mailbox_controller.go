@@ -3,7 +3,6 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/omarqazi/hearst/auth"
 	"github.com/omarqazi/hearst/datastore"
 	"log"
 	"net/http"
@@ -89,11 +88,6 @@ func (c MailboxController) PutMailbox(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
 		fmt.Fprintln(w, "mailbox not found")
 		return
-	}
-
-	publicKey, err := auth.PublicKeyFromString(dbBox.PublicKey)
-	if err != nil {
-		log.Println("Error generating public key string", publicKey)
 	}
 
 	if mailbox.PublicKey == "" {
