@@ -1,7 +1,6 @@
 package datastore
 
 import (
-	"code.google.com/p/go-uuid/uuid"
 	"errors"
 	"time"
 )
@@ -82,7 +81,7 @@ func (mb *Mailbox) RequireId() string {
 // sets it as the id of the calling struct,
 // and returns the newly generated UUID
 func (mb *Mailbox) GenerateUUID() string {
-	newId := uuid.New()
+	newId := NewUUID()
 	mb.Id = newId
 	return newId
 }

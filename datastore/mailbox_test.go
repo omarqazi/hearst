@@ -19,6 +19,7 @@ func TestInsert(t *testing.T) {
 		t.Error("Error inserting mailbox", err)
 	}
 
+	CleanupMailbox(t)
 	testObjectId = mb.Id
 }
 
@@ -90,5 +91,19 @@ func TestDelete(t *testing.T) {
 	if erx == nil {
 		t.Error("Error: expected error getting deleted mailbox but it was still found", mbx)
 		return
+	}
+}
+
+func CleanupMailbox(t *testing.T) {
+	if testObjectId != "" {
+		mb, err := GetMailbox(testObjectId)
+		if err == nil {
+			erx := mb.Delete()
+			if erx != nil {
+				t.Error("Error cleaning up mailbox:", erx)
+			} else {
+				testObjectId = ""
+			}
+		}
 	}
 }

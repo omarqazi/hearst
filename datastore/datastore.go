@@ -1,6 +1,7 @@
 package datastore
 
 import (
+	"code.google.com/p/go-uuid/uuid"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"log"
@@ -20,4 +21,9 @@ func ConnectPostgres() {
 	if err != nil {
 		log.Fatalln("Error connecting to postgres:", err)
 	}
+}
+
+func NewUUID() string {
+	newId := uuid.New()
+	return newId
 }
