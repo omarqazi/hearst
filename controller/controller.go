@@ -20,3 +20,11 @@ func rid(r *http.Request) string {
 	comps := pathComponents(r)
 	return comps[0]
 }
+
+func urlSubcategory(r *http.Request) string {
+	comps := pathComponents(r)
+	if len(comps) > 1 {
+		return comps[1]
+	}
+	return ""
+}

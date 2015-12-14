@@ -1,8 +1,6 @@
 package main
 
 import (
-	"github.com/omarqazi/hearst/auth"
-	"github.com/omarqazi/hearst/datastore"
 	"log"
 	"net/http"
 )

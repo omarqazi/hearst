@@ -204,3 +204,50 @@ func TestThreadDeleteRequest(t *testing.T) {
 		return
 	}
 }
+
+func TestThreadMembersGetRequest(t *testing.T) {
+	thread := datastore.Thread{
+		Subject: "a thread with members",
+	}
+	if err := thread.Insert(); err != nil {
+		t.Error("Error saving thread:", err)
+		return
+	}
+
+	mb := datastore.Mailbox{
+		PublicKey: "some-public-key",
+		DeviceId:  "some-device-id",
+	}
+	if err := mb.Insert(); err != nil {
+		t.Error("Error saving mailbox:", err)
+		return
+	}
+
+	tm := datastore.ThreadMember{
+		ThreadId:          thread.Id,
+		MailboxId:         mb.Id,
+		AllowRead:         true,
+		AllowWrite:        false,
+		AllowNotification: true,
+	}
+
+	if err := thread.AddMember(&tm); err != nil {
+		t.Error("Error adding member to thread:", err)
+		return
+	}
+
+	requestUrl := fmt.Sprintf("http://localhost:8080/thread/%s/members", thread.Id)
+	req, err := http.NewRequest("GET", requestUrl, nil)
+	if err != nil {
+		t.Error("Error building GET request:", err)
+		return
+	}
+
+	w := httptest.NewRecorder()
+	tc.ServeHTTP(w, req)
+
+	if w.Code > 299 || w.Code < 200 {
+		t.Error("Expected 200 response but got", w.Code)
+		return
+	}
+}

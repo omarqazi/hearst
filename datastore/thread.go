@@ -13,7 +13,7 @@ type Thread struct {
 }
 
 type ThreadMember struct {
-	ThreadId          string `db:"thread_id"`
+	ThreadId          string `db:"thread_id" json:"-"`
 	MailboxId         string `db:"mailbox_id"`
 	AllowRead         bool   `db:"allow_read"`
 	AllowWrite        bool   `db:"allow_write"`

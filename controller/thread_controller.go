@@ -11,6 +11,14 @@ type ThreadController struct {
 }
 
 func (tc ThreadController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if subcat := urlSubcategory(r); subcat == "members" {
+		tc.RouteThreadMembersRequest(w, r)
+	} else {
+		tc.RouteThreadRequest(w, r)
+	}
+}
+
+func (tc ThreadController) RouteThreadRequest(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		tc.GetThread(rid(r), w, r)
@@ -20,6 +28,15 @@ func (tc ThreadController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		tc.PutThread(w, r)
 	case "DELETE":
 		tc.DeleteThread(w, r)
+	default:
+		tc.HandleUnknown(w, r)
+	}
+}
+
+func (tc ThreadController) RouteThreadMembersRequest(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		tc.GetThreadMembers(rid(r), w, r)
 	default:
 		tc.HandleUnknown(w, r)
 	}
@@ -102,6 +119,35 @@ func (tc ThreadController) DeleteThread(w http.ResponseWriter, r *http.Request) 
 	}
 
 	fmt.Fprintln(w, "thread deleted")
+}
+
+func (tc ThreadController) GetThreadMembers(tid string, w http.ResponseWriter, r *http.Request) {
+	thread, err := datastore.GetThread(tid)
+	if err != nil {
+		http.Error(w, "thread not found", 404)
+		return
+	}
+
+	comps := pathComponents(r)
+	var outputValue interface{}
+	if len(comps) > 2 { // Requesting specific member
+		mailboxId := comps[2]
+		outputValue, err = thread.GetMember(mailboxId)
+
+	} else {
+		outputValue, err = thread.GetAllMembers()
+	}
+	if err != nil {
+		http.Error(w, "error getting thread members", 500)
+		return
+	}
+
+	encoder := json.NewEncoder(w)
+	w.Header().Add("Content-Type", "application/json")
+	if err := encoder.Encode(outputValue); err != nil {
+		http.Error(w, "error marshaling response json", 500)
+		return
+	}
 }
 
 func (tc ThreadController) HandleUnknown(w http.ResponseWriter, r *http.Request) {
