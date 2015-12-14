@@ -14,7 +14,7 @@ func Up_20151213032410(txn *sql.Tx) {
 		sender_mailbox_id uuid not null,
 		createdat timestamp with time zone not null,
 		updatedat timestamp with time zone not null,
-		expiresat timestamp with time zone not null,
+		expiresat timestamp with time zone,
 		topic text,
 		body text,
 		labels jsonb,

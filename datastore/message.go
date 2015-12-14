@@ -3,6 +3,7 @@ package datastore
 import (
 	"errors"
 	"github.com/jmoiron/sqlx/types"
+	"github.com/lib/pq"
 	"time"
 )
 
@@ -12,7 +13,7 @@ type Message struct {
 	SenderMailboxId string `db:"sender_mailbox_id"`
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
-	ExpiresAt       time.Time
+	ExpiresAt       pq.NullTime
 	Topic           string
 	Body            string
 	Labels          types.JsonText
@@ -54,11 +55,15 @@ func (m *Message) Update() error {
 	}
 
 	tx := PostgresDb.MustBegin()
-	tx.NamedExec(`
+	_, err := tx.NamedExec(`
 		update messages set updatedat = now(), expiresat = :expiresat, topic = :topic, body = :body,
 		labels = :labels, payload = :payload where id = :id;
 	`, m)
-	err := tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	err = tx.Commit()
 	return err
 }
 

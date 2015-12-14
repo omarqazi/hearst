@@ -23,6 +23,8 @@ func TestInsertThread(t *testing.T) {
 
 func TestSelectThread(t *testing.T) {
 	TestInsertThread(t)
+	defer CleanUpThread(t)
+
 	tr, err := GetThread(testThreadId)
 	if err != nil {
 		t.Error("Error getting thread:", err)
@@ -37,6 +39,8 @@ func TestSelectThread(t *testing.T) {
 
 func TestUpdateThread(t *testing.T) {
 	TestInsertThread(t)
+	defer CleanUpThread(t)
+
 	tr, err := GetThread(testThreadId)
 	if err != nil {
 		t.Error("Error getting thread for update:", err)
@@ -83,6 +87,8 @@ func TestDeleteThread(t *testing.T) {
 
 func TestAddMember(t *testing.T) {
 	TestInsertThread(t)
+	defer CleanUpThread(t)
+
 	tr, err := GetThread(testThreadId)
 	if err != nil {
 		t.Error("Error getting thread for add member:", err)
