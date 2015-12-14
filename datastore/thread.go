@@ -13,11 +13,11 @@ type Thread struct {
 }
 
 type ThreadMember struct {
-	ThreadId          string
-	MailboxId         string
-	AllowRead         bool
-	AllowWrite        bool
-	AllowNotification bool
+	ThreadId          string `db:"thread_id"`
+	MailboxId         string `db:"mailbox_id"`
+	AllowRead         bool   `db:"allow_read"`
+	AllowWrite        bool   `db:"allow_write"`
+	AllowNotification bool   `db:"allow_notification"`
 }
 
 func GetThread(uuid string) (Thread, error) {
@@ -67,6 +67,61 @@ func (t *Thread) Delete() error {
 	tx.NamedExec(`
 		delete from threads where id = :id
 	`, t)
+	err := tx.Commit()
+	return err
+}
+
+func (t *Thread) GetMember(mailboxId string) (ThreadMember, error) {
+	members := []ThreadMember{}
+	err := PostgresDb.Select(&members, "select * from thread_members where mailbox_id = $1 and thread_id = $2", mailboxId, t.Id)
+	if err != nil {
+		return ThreadMember{}, err
+	} else if len(members) > 0 {
+		return members[0], nil
+	}
+
+	return ThreadMember{}, errors.New("No member found with that mailbox id")
+}
+
+func (t *Thread) GetAllMembers() ([]ThreadMember, error) {
+	members := []ThreadMember{}
+	err := PostgresDb.Select(&members, "select * from thread_members where thread_id = $1", t.Id)
+	return members, err
+}
+
+func (t *Thread) AddMember(m *ThreadMember) error {
+	m.ThreadId = t.Id
+	if m.MailboxId == "" {
+		return errors.New("Invalid mailbox ID for new member")
+	}
+
+	tx := PostgresDb.MustBegin()
+	tx.NamedExec(`
+		insert into thread_members 
+		(thread_id, mailbox_id, allow_read, allow_write, allow_notification)
+		VALUES (:thread_id, :mailbox_id, :allow_read, :allow_write, :allow_notification);
+	`, m)
+	err := tx.Commit()
+	return err
+}
+
+func (m *ThreadMember) UpdatePermissions() error {
+	tx := PostgresDb.MustBegin()
+	tx.NamedExec(`
+		update thread_members set allow_read = :allow_read, allow_write = :allow_write,
+		allow_notification = :allow_notification 
+		where thread_id = :thread_id and mailbox_id = :mailbox_id;
+	`, m)
+	err := tx.Commit()
+	return err
+}
+
+func (m *ThreadMember) Remove() error {
+	tx := PostgresDb.MustBegin()
+	tx.NamedExec(`
+		delete from thread_members
+		where thread_id = :thread_id and mailbox_id = :mailbox_id;
+	`, m)
 	err := tx.Commit()
 	return err
 }

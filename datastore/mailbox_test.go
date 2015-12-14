@@ -4,12 +4,12 @@ import (
 	"testing"
 )
 
-var testObjectId string
+var testMailboxId string
 
 const devicePushNotificationId = "push-notification-id"
 const devicePublicKey = "BeginRSAKey"
 
-func TestInsert(t *testing.T) {
+func TestMailboxInsert(t *testing.T) {
 	mb := Mailbox{
 		DeviceId:  devicePushNotificationId,
 		PublicKey: devicePublicKey,
@@ -20,12 +20,12 @@ func TestInsert(t *testing.T) {
 	}
 
 	CleanupMailbox(t)
-	testObjectId = mb.Id
+	testMailboxId = mb.Id
 }
 
-func TestSelect(t *testing.T) {
-	TestInsert(t)
-	mb, err := GetMailbox(testObjectId)
+func TestMailboxSelect(t *testing.T) {
+	TestMailboxInsert(t)
+	mb, err := GetMailbox(testMailboxId)
 	if err != nil {
 		t.Error("Error getting mailbox", err)
 		return
@@ -47,9 +47,9 @@ func TestSelect(t *testing.T) {
 	}
 }
 
-func TestUpdate(t *testing.T) {
-	TestInsert(t)
-	mb, err := GetMailbox(testObjectId)
+func TestMailboxUpdate(t *testing.T) {
+	TestMailboxInsert(t)
+	mb, err := GetMailbox(testMailboxId)
 	if err != nil {
 		t.Error("Error getting mailbox for update:", err)
 		return
@@ -62,7 +62,7 @@ func TestUpdate(t *testing.T) {
 		return
 	}
 
-	mbx, erx := GetMailbox(testObjectId)
+	mbx, erx := GetMailbox(testMailboxId)
 	if erx != nil {
 		t.Error("Error getting mailbox after update:", err)
 		return
@@ -74,9 +74,9 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
-func TestDelete(t *testing.T) {
-	TestInsert(t)
-	mb, err := GetMailbox(testObjectId)
+func TestMailboxDelete(t *testing.T) {
+	TestMailboxInsert(t)
+	mb, err := GetMailbox(testMailboxId)
 	if err != nil {
 		t.Error("Error getting mailbox for delete:", err)
 		return
@@ -87,7 +87,7 @@ func TestDelete(t *testing.T) {
 		return
 	}
 
-	mbx, erx := GetMailbox(testObjectId)
+	mbx, erx := GetMailbox(testMailboxId)
 	if erx == nil {
 		t.Error("Error: expected error getting deleted mailbox but it was still found", mbx)
 		return
@@ -95,14 +95,14 @@ func TestDelete(t *testing.T) {
 }
 
 func CleanupMailbox(t *testing.T) {
-	if testObjectId != "" {
-		mb, err := GetMailbox(testObjectId)
+	if testMailboxId != "" {
+		mb, err := GetMailbox(testMailboxId)
 		if err == nil {
 			erx := mb.Delete()
 			if erx != nil {
 				t.Error("Error cleaning up mailbox:", erx)
 			} else {
-				testObjectId = ""
+				testMailboxId = ""
 			}
 		}
 	}

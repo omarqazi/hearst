@@ -3,4 +3,4 @@ all : test bin
 bin : 
 	go build
 test :
-	go test -v . ./datastore
+	go test . ./datastore

@@ -81,6 +81,103 @@ func TestDeleteThread(t *testing.T) {
 	}
 }
 
+func TestAddMember(t *testing.T) {
+	TestInsertThread(t)
+	tr, err := GetThread(testThreadId)
+	if err != nil {
+		t.Error("Error getting thread for add member:", err)
+		return
+	}
+
+	TestMailboxInsert(t)
+	mb, err := GetMailbox(testMailboxId)
+	if err != nil {
+		t.Error("Error getting mailbox on member add:", err)
+		return
+	}
+
+	member := ThreadMember{
+		MailboxId:         mb.Id,
+		AllowRead:         true,
+		AllowWrite:        false,
+		AllowNotification: true,
+	}
+
+	allMembers, err := tr.GetAllMembers()
+	if err != nil {
+		t.Error("Error getting thread members:", err)
+		return
+	}
+
+	originalNumberOfMembers := len(allMembers)
+	if originalNumberOfMembers != 0 {
+		t.Error("Expected 0 thread members but found", originalNumberOfMembers)
+		return
+	}
+
+	if err := tr.AddMember(&member); err != nil {
+		t.Error("Error adding member:", member)
+		return
+	}
+
+	allMembersx, err := tr.GetAllMembers()
+	if err != nil {
+		t.Error("Error getting members after add:", err)
+		return
+	}
+
+	updatedNumberOfMembers := len(allMembersx)
+	if expected := originalNumberOfMembers + 1; updatedNumberOfMembers != expected {
+		t.Error("Expected", expected, "members after add but found", updatedNumberOfMembers)
+		return
+	}
+
+	dbMember := allMembersx[0]
+	if dbMember.AllowRead != member.AllowRead || dbMember.AllowWrite != member.AllowWrite || dbMember.AllowNotification != member.AllowNotification {
+		t.Error("Expected member", member, "but got", dbMember)
+		return
+	}
+
+	dbMember.AllowWrite = true
+	if err := dbMember.UpdatePermissions(); err != nil {
+		t.Error("Error updating permissions:", err)
+		return
+	}
+
+	directMember, err := tr.GetMember(dbMember.MailboxId)
+	if err != nil {
+		t.Error("Error getting members after update:", err)
+		return
+	}
+
+	if directMember.AllowWrite != true {
+		t.Error("Expected AllowWrite = true after update")
+		return
+	}
+
+	if err := directMember.Remove(); err != nil {
+		t.Error("Error removing member:", err)
+		return
+	}
+
+	allMembersy, err := tr.GetAllMembers()
+	if err != nil {
+		t.Error("Error getting members after remove", err)
+		return
+	}
+
+	updatedNumberOfMembers = len(allMembersy)
+	if updatedNumberOfMembers != originalNumberOfMembers {
+		t.Error("Expected", originalNumberOfMembers, "members", "but found", updatedNumberOfMembers)
+		return
+	}
+
+	missingMember, err := tr.GetMember(mb.Id)
+	if err == nil {
+		t.Error("Expected error getting member after delete but got", missingMember)
+	}
+}
+
 func CleanUpThread(t *testing.T) {
 	if testThreadId != "" {
 		tr, err := GetThread(testThreadId)
