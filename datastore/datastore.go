@@ -12,15 +12,14 @@ const connectionString = "dbname=hearst user=postgres password=postgres sslmode=
 var PostgresDb *sqlx.DB = nil
 
 func init() {
-	ConnectPostgres()
-}
-
-func ConnectPostgres() {
-	var err error
-	PostgresDb, err = sqlx.Open("postgres", connectionString)
-	if err != nil {
+	if err := ConnectPostgres(); err != nil {
 		log.Fatalln("Error connecting to postgres:", err)
 	}
+}
+
+func ConnectPostgres() (err error) {
+	PostgresDb, err = sqlx.Open("postgres", connectionString)
+	return
 }
 
 func NewUUID() string {
