@@ -8,10 +8,10 @@ import (
 const staticPath = "www"
 
 var routes = map[string]http.Handler{
-	"/":         http.FileServer(http.Dir(staticPath)),
-	"/mailbox/": controller.MailboxController{},
-	"/thread/":  controller.ThreadController{},
-	"/message/": controller.MessageController{},
+	"/":          http.FileServer(http.Dir(staticPath)),
+	"/mailbox/":  controller.MailboxController{},
+	"/thread/":   controller.ThreadController{},
+	"/messages/": controller.MessageController{},
 }
 
 func init() {

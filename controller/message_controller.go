@@ -14,23 +14,53 @@ func (mc MessageController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		mc.GetMessage(rid(r), w, r)
+	case "POST":
+		mc.PostMessage(w, r)
 	default:
 		mc.HandleUnknown(w, r)
 	}
 }
 
-func (mc MessageController) GetMessage(mid string, w http.ResponseWriter, r *http.Request) {
-	message, err := datastore.GetMessage(mid)
+const messageLimit = 500
+
+func (mc MessageController) GetMessage(tid string, w http.ResponseWriter, r *http.Request) {
+	thread, err := datastore.GetThread(tid)
 	if err != nil {
-		http.Error(w, "message not found", 404)
+		http.Error(w, "thread not found", 404)
+		return
+	}
+
+	recentMessages, err := thread.RecentMessages(messageLimit)
+	if err != nil {
+		http.Error(w, "error finding recent messages", 500)
 		return
 	}
 
 	encoder := json.NewEncoder(w)
 	w.Header().Add("Content-Type", "application/json")
-	if err := encoder.Encode(message); err != nil {
+	if err := encoder.Encode(recentMessages); err != nil {
 		http.Error(w, "error marshaling response JSON", 500)
 	}
+}
+
+func (mc MessageController) PostMessage(w http.ResponseWriter, r *http.Request) {
+	var message datastore.Message
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&message); err != nil {
+		http.Error(w, "error parsing request body", 400)
+		return
+	}
+
+	if message.ThreadId == "" {
+		message.ThreadId = rid(r)
+	}
+
+	if err := message.Insert(); err != nil {
+		http.Error(w, "error inserting message", 500)
+		return
+	}
+
+	mc.GetMessage(message.ThreadId, w, r)
 }
 
 func (mc MessageController) HandleUnknown(w http.ResponseWriter, r *http.Request) {

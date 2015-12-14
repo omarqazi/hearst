@@ -9,15 +9,21 @@ import (
 
 type Message struct {
 	Id              string
-	ThreadId        string `db:"thread_id"`
-	SenderMailboxId string `db:"sender_mailbox_id"`
+	ThreadId        string `db:"thread_id" json:"-"`
+	SenderMailboxId string `db:"sender_mailbox_id" json:"Sender"`
 	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	ExpiresAt       pq.NullTime
+	UpdatedAt       time.Time   `json:"-"`
+	ExpiresAt       pq.NullTime `json:"-"`
 	Topic           string
 	Body            string
 	Labels          types.JsonText
 	Payload         types.JsonText
+}
+
+func (t *Thread) RecentMessages(limit int) (mx []Message, err error) {
+	mx = []Message{}
+	err = PostgresDb.Select(&mx, "select * from messages where thread_id = $1 order by createdat asc limit $2;", t.Id, limit)
+	return
 }
 
 func GetMessage(uuid string) (Message, error) {

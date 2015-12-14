@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-var mc = http.StripPrefix("/message/", MessageController{})
+var mc = http.StripPrefix("/messages/", MessageController{})
 
 func TestMessageGetRequest(t *testing.T) {
 	thread := datastore.Thread{Subject: "test message get request"}
@@ -38,7 +38,7 @@ func TestMessageGetRequest(t *testing.T) {
 		return
 	}
 
-	testRequestUrl := fmt.Sprintf("http://localhost:8080/message/%s", m.Id)
+	testRequestUrl := fmt.Sprintf("http://localhost:8080/messages/%s", thread.Id)
 	req, err := http.NewRequest("GET", testRequestUrl, nil)
 	if err != nil {
 		t.Error("Error building GET request:", err)
@@ -53,14 +53,21 @@ func TestMessageGetRequest(t *testing.T) {
 		return
 	}
 
-	var responseMessage datastore.Message
+	var responseMessages []datastore.Message
 	decoder := json.NewDecoder(w.Body)
-	if err := decoder.Decode(&responseMessage); err != nil {
+	if err := decoder.Decode(&responseMessages); err != nil {
 		t.Error("Error decoding message from response body", err)
 		return
 	}
 
-	if responseMessage.ThreadId != m.ThreadId || responseMessage.SenderMailboxId != m.SenderMailboxId {
+	if len(responseMessages) == 0 {
+		t.Error("Expected 1 message but found 0")
+		return
+	}
+
+	responseMessage := responseMessages[0]
+
+	if responseMessage.SenderMailboxId != m.SenderMailboxId {
 		t.Error("Expected message", m, "but got", responseMessage)
 		return
 	}
@@ -68,4 +75,8 @@ func TestMessageGetRequest(t *testing.T) {
 	m.Delete()
 	thread.Delete()
 	mailbox.Delete()
+}
+
+func TestMessagePostRequest(t *testing.T) {
+
 }
