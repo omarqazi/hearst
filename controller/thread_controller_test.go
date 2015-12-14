@@ -504,6 +504,9 @@ func TestThreadMembersDeleteRequest(t *testing.T) {
 	dbm, err := thread.GetMember(mailbox.Id)
 	if err == nil {
 		t.Error("Deleted thread member but still found", dbm)
-		return
+		dbm.Remove()
 	}
+
+	thread.Delete()
+	mailbox.Delete()
 }
