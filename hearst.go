@@ -16,35 +16,5 @@ func init() {
 }
 
 func main() {
-	privateKey, err := auth.GeneratePrivateKey(1024)
-	if err != nil {
-		log.Println("Error generating private key:", err)
-		return
-	}
-
-	publicKeyString, err := auth.StringForPublicKey(&privateKey.PublicKey)
-	if err != nil {
-		log.Println("Error generating string for public key:", err)
-		return
-	}
-
-	mb := &datastore.Mailbox{
-		DeviceId:  "push-notification-id",
-		PublicKey: publicKeyString,
-	}
-
-	if token, err := auth.NewToken(privateKey); err != nil {
-		log.Println("Error genearing auth token:", err)
-		return
-	} else {
-		log.Println("Generated token:", token)
-	}
-
-	if err := mb.Insert(); err != nil {
-		log.Println("Error inserting mailbox", err)
-	}
-
-	log.Println(mb.Id)
-
 	log.Fatalln(errorMessage, http.ListenAndServe(bindAddress, nil))
 }
