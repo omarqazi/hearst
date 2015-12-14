@@ -19,7 +19,7 @@ func TestMailboxInsert(t *testing.T) {
 		t.Error("Error inserting mailbox", err)
 	}
 
-	CleanupMailbox(t)
+	CleanUpMailbox(t)
 	testMailboxId = mb.Id
 }
 
@@ -94,7 +94,7 @@ func TestMailboxDelete(t *testing.T) {
 	}
 }
 
-func CleanupMailbox(t *testing.T) {
+func CleanUpMailbox(t *testing.T) {
 	if testMailboxId != "" {
 		mb, err := GetMailbox(testMailboxId)
 		if err == nil {

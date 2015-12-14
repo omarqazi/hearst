@@ -176,6 +176,8 @@ func TestAddMember(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error getting member after delete but got", missingMember)
 	}
+
+	CleanUpMailbox(t)
 }
 
 func CleanUpThread(t *testing.T) {
