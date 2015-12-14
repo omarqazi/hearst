@@ -13,15 +13,19 @@ const tokenAuthorizationDuration = 15 * time.Minute
 // and if not returns a 403 Forbidden returns true if request
 // is authorized, false if request was blocked
 func Request(w http.ResponseWriter, r *http.Request, pub *rsa.PublicKey) bool {
+	if !RequestValid(w, r, pub) {
+		http.Error(w, "Unauthorized -- Invalid API Token", 403)
+		return false
+	}
+	return true
+}
+
+func RequestValid(w http.ResponseWriter, r *http.Request, pub *rsa.PublicKey) bool {
 	token := r.Header.Get("X-API-Token")
 	if token == "" {
 		token = r.URL.Query().Get("token")
 	}
 
 	tokenValid := TokenValid(token, tokenAuthorizationDuration, pub)
-	if !tokenValid {
-		http.Error(w, "Unauthorized -- Invalid API Token", 403)
-		return false
-	}
-	return true
+	return tokenValid
 }

@@ -1,18 +1,30 @@
 package datastore
 
 import (
+	"github.com/omarqazi/hearst/auth"
 	"testing"
 )
 
 var testMailboxId string
 
 const devicePushNotificationId = "push-notification-id"
-const devicePublicKey = "BeginRSAKey"
 
 func TestMailboxInsert(t *testing.T) {
-	mb := Mailbox{
+	privateKey, err := auth.GeneratePrivateKey(1024)
+	if err != nil {
+		t.Error("Error generating private key:", err)
+		return
+	}
+
+	publicKeyString, err := auth.StringForPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		t.Error("Error generating string for public key:", err)
+		return
+	}
+
+	mb := &Mailbox{
 		DeviceId:  devicePushNotificationId,
-		PublicKey: devicePublicKey,
+		PublicKey: publicKeyString,
 	}
 
 	if err := mb.Insert(); err != nil {
@@ -36,11 +48,6 @@ func TestMailboxSelect(t *testing.T) {
 		return
 	}
 
-	if mb.PublicKey != devicePublicKey {
-		t.Error("Error: expected public key", devicePublicKey, "but got", mb.PublicKey)
-		return
-	}
-
 	if mb.DeviceId != devicePushNotificationId {
 		t.Error("Error expected device id", devicePushNotificationId, "but got", mb.DeviceId)
 		return
@@ -55,8 +62,8 @@ func TestMailboxUpdate(t *testing.T) {
 		return
 	}
 
-	newPublicKey := "NewPublicKey"
-	mb.PublicKey = newPublicKey
+	newDeviceId := "NewDeviceId"
+	mb.DeviceId = newDeviceId
 	if err := mb.Update(); err != nil {
 		t.Error("Error updating mailbox:", err)
 		return
@@ -68,8 +75,8 @@ func TestMailboxUpdate(t *testing.T) {
 		return
 	}
 
-	if mbx.PublicKey != newPublicKey {
-		t.Error("Error: Expected public key", newPublicKey, "but got", mbx.PublicKey)
+	if mbx.DeviceId != newDeviceId {
+		t.Error("Error: Expected device id", newDeviceId, "but got", mbx.DeviceId)
 		return
 	}
 }

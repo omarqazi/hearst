@@ -109,14 +109,12 @@ func TestToken(t *testing.T) {
 		t.Fatal("Error generating token:", err)
 	}
 
-	expirationDuration := 100 * time.Millisecond
+	expirationDuration := 1 * time.Millisecond
 	fmt.Println("Generated token", token)
 
 	if !TokenValid(token, 1*time.Hour, &privateKey.PublicKey) {
 		t.Fatal("Error: freshly generated token already invalid:", token)
 	}
-
-	time.Sleep(expirationDuration)
 
 	if TokenValid(token, expirationDuration, &privateKey.PublicKey) {
 		t.Fatal("Error: token still valid after expiration")
