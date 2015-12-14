@@ -173,3 +173,34 @@ func TestThreadPutRequest(t *testing.T) {
 		return
 	}
 }
+
+func TestThreadDeleteRequest(t *testing.T) {
+	thread := datastore.Thread{
+		Subject: "my days are numbered (in ms)",
+	}
+	if err := thread.Insert(); err != nil {
+		t.Error("Error saving thread:", err)
+		return
+	}
+
+	requestUrl := fmt.Sprintf("http://localhost:8080/thread/%s", thread.Id)
+	req, err := http.NewRequest("DELETE", requestUrl, nil)
+	if err != nil {
+		t.Error("Error building DELETE request:", err)
+		return
+	}
+
+	w := httptest.NewRecorder()
+	tc.ServeHTTP(w, req)
+
+	if w.Code > 299 || w.Code < 200 {
+		t.Error("Expected 200 response but got", w.Code)
+		return
+	}
+
+	trx, erx := datastore.GetThread(thread.Id)
+	if erx == nil {
+		t.Error("Expected thread to be deleted but found", trx)
+		return
+	}
+}

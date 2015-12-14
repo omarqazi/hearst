@@ -18,6 +18,8 @@ func (tc ThreadController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		tc.PostThread(w, r)
 	case "PUT":
 		tc.PutThread(w, r)
+	case "DELETE":
+		tc.DeleteThread(w, r)
 	default:
 		tc.HandleUnknown(w, r)
 	}
@@ -89,6 +91,17 @@ func (tc ThreadController) PutThread(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tc.GetThread(thread.Id, w, r)
+}
+
+func (tc ThreadController) DeleteThread(w http.ResponseWriter, r *http.Request) {
+	thread := datastore.Thread{Id: rid(r)}
+	if err := thread.Delete(); err != nil {
+		w.WriteHeader(404)
+		fmt.Fprintln(w, "thread not found")
+		return
+	}
+
+	fmt.Fprintln(w, "thread deleted")
 }
 
 func (tc ThreadController) HandleUnknown(w http.ResponseWriter, r *http.Request) {
