@@ -456,3 +456,54 @@ func TestThreadMembersPutRequest(t *testing.T) {
 	thread.Delete()
 	mailbox.Delete()
 }
+
+func TestThreadMembersDeleteRequest(t *testing.T) {
+	thread := datastore.Thread{
+		Subject: "delete one of my members",
+	}
+	if err := thread.Insert(); err != nil {
+		t.Error("Error inserting thread:", err)
+		return
+	}
+
+	mailbox := datastore.Mailbox{
+		PublicKey: "some-public-key",
+		DeviceId:  "some-device-id",
+	}
+	if err := mailbox.Insert(); err != nil {
+		t.Error("Error inserting mailbox:", err)
+		return
+	}
+
+	err := thread.AddMember(&datastore.ThreadMember{
+		MailboxId:         mailbox.Id,
+		AllowRead:         true,
+		AllowWrite:        false,
+		AllowNotification: true,
+	})
+	if err != nil {
+		t.Error("Error adding member to thread:", err)
+		return
+	}
+
+	rurl := fmt.Sprintf("http://localhost:8080/thread/%s/members/%s", thread.Id, mailbox.Id)
+	req, err := http.NewRequest("DELETE", rurl, nil)
+	if err != nil {
+		t.Error("Error building DELETE request:", err)
+		return
+	}
+
+	w := httptest.NewRecorder()
+	tc.ServeHTTP(w, req)
+
+	if w.Code > 299 || w.Code < 200 {
+		t.Error("Expected 200 response but got", w.Code)
+		return
+	}
+
+	dbm, err := thread.GetMember(mailbox.Id)
+	if err == nil {
+		t.Error("Deleted thread member but still found", dbm)
+		return
+	}
+}

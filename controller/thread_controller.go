@@ -41,6 +41,8 @@ func (tc ThreadController) RouteThreadMembersRequest(w http.ResponseWriter, r *h
 		tc.PostThreadMember(w, r)
 	case "PUT":
 		tc.PutThreadMember(w, r)
+	case "DELETE":
+		tc.DeleteThreadMember(w, r)
 	default:
 		tc.HandleUnknown(w, r)
 	}
@@ -219,6 +221,34 @@ func (tc ThreadController) PutThreadMember(w http.ResponseWriter, r *http.Reques
 	}
 
 	tc.GetThreadMembers(thread.Id, w, r)
+}
+
+func (tc ThreadController) DeleteThreadMember(w http.ResponseWriter, r *http.Request) {
+	comps := pathComponents(r)
+	if len(comps) < 3 {
+		http.Error(w, "invalid mailbox id for thread member", 400)
+		return
+	}
+
+	mailboxId := comps[2]
+	thread, err := datastore.GetThread(rid(r))
+	if err != nil {
+		http.Error(w, "thread not found", 404)
+		return
+	}
+
+	member, err := thread.GetMember(mailboxId)
+	if err != nil {
+		http.Error(w, "thread member not found", 404)
+		return
+	}
+
+	if err := member.Remove(); err != nil {
+		http.Error(w, "Error removing thread member", 500)
+		return
+	}
+
+	fmt.Fprintln(w, "thread member removed")
 }
 
 func (tc ThreadController) HandleUnknown(w http.ResponseWriter, r *http.Request) {
