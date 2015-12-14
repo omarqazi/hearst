@@ -5,10 +5,14 @@ import (
 	"net/http"
 )
 
-// ye
+const startMessage = "Starting Hearst on port 8080..."
+const errorMessage = "Error starting server:"
+const bindAddress = ":8080"
+
+func init() {
+	log.Println(startMessage)
+}
 
 func main() {
-	log.Println("Starting hearst on :8080...")
-	err := http.ListenAndServe(":8080", nil)
-	log.Fatalln("Error starting server:", err)
+	log.Fatalln(errorMessage, http.ListenAndServe(bindAddress, nil))
 }
