@@ -3,7 +3,7 @@ all : test bin
 bin : 
 	go build
 test :
-	go test . ./datastore ./controller
+	go test . ./auth ./datastore ./controller
 run : bin
 	./hearst
 testrun : test run
