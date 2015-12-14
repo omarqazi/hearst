@@ -34,7 +34,7 @@ func TestThreadGetRequest(t *testing.T) {
 		return
 	}
 
-	/* if err := thread.Delete(); err != nil {
+	if err := thread.Delete(); err != nil {
 		t.Error("Error deleting thread after test get request:", err)
-	} */
+	}
 }
