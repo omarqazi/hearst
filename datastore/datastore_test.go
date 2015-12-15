@@ -8,6 +8,12 @@ func TestPostgresConnect(t *testing.T) {
 	}
 }
 
+func TestRedisConnect(t *testing.T) {
+	if err := ConnectRedis(); err != nil {
+		t.Error("Error connecting to redis:", err)
+	}
+}
+
 func TestGenerateUUID(t *testing.T) {
 	uuida := NewUUID()
 	if uuida == "" {
