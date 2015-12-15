@@ -52,6 +52,7 @@ func (m *Message) Insert() error {
 		return err
 	}
 	err = tx.Commit()
+	Stream.AnnounceEvent("message-insert-"+m.ThreadId, m)
 	return err
 }
 
@@ -70,6 +71,7 @@ func (m *Message) Update() error {
 	}
 
 	err = tx.Commit()
+	Stream.AnnounceEvent("message-update-"+m.ThreadId, m)
 	return err
 }
 
@@ -83,6 +85,7 @@ func (m *Message) Delete() error {
 		delete from messages where id = :id;
 	`, m)
 	err := tx.Commit()
+	Stream.AnnounceEvent("message-delete-"+m.ThreadId, m)
 	return err
 }
 

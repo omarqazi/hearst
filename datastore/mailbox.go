@@ -37,6 +37,7 @@ func (mb *Mailbox) Insert() error {
 	tx := PostgresDb.MustBegin()
 	tx.NamedExec("insert into mailboxes (id, createdat, updatedat, connectedat, public_key, device_id) VALUES (:id, now(), now(), now(), :public_key, :device_id)", mb)
 	err := tx.Commit()
+	Stream.AnnounceEvent("mailbox-insert-"+mb.Id, mb)
 	return err
 }
 
@@ -51,6 +52,7 @@ func (mb *Mailbox) Update() error {
 		public_key = :public_key, device_id = :device_id where id = :id;
 	`, mb)
 	err := tx.Commit()
+	Stream.AnnounceEvent("mailbox-update-"+mb.Id, mb)
 	return err
 }
 
@@ -64,6 +66,7 @@ func (mb *Mailbox) Delete() error {
 		delete from mailboxes where id = :id;
 	`, mb)
 	err := tx.Commit()
+	Stream.AnnounceEvent("mailbox-delete-"+mb.Id, mb)
 	return err
 }
 

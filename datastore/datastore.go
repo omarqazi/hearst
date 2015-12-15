@@ -13,6 +13,7 @@ const redisHost = "localhost:6379"
 
 var PostgresDb *sqlx.DB = nil
 var RedisDb *redis.Client
+var Stream EventStream
 
 func init() {
 	if err := ConnectPostgres(); err != nil {
@@ -21,6 +22,10 @@ func init() {
 
 	if err := ConnectRedis(); err != nil {
 		log.Fatalln("Error connecting to redis:", err)
+	}
+
+	Stream = EventStream{
+		Client: RedisDb,
 	}
 }
 
