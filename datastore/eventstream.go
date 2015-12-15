@@ -3,9 +3,11 @@ package datastore
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"gopkg.in/redis.v3"
 	"log"
 	"strings"
+	"time"
 )
 
 // EventStream maintains a redis pubsub connection
@@ -14,6 +16,7 @@ import (
 type EventStream struct {
 	Client      *redis.Client
 	Pubsub      *redis.PubSub
+	Requests    chan string
 	subscribers map[string][]chan Event
 }
 
@@ -46,6 +49,7 @@ func ParseEventId(eventId string, payload string) (ev Event) {
 // The argument should be a verified working redis client.
 func NewStream(client *redis.Client) (ev EventStream) {
 	ev.Client = client
+	ev.Requests = make(chan string)
 	ev.subscribers = make(map[string][]chan Event)
 	return
 }
@@ -73,7 +77,7 @@ func (es *EventStream) AnnounceEvent(eventId string, payload interface{}) error 
 // so you can specify a subscription to only get a certain subcategory
 // of events, or leave the argument blank to get all events
 func (es *EventStream) EventChannel(subscription string) chan Event {
-	ec := make(chan Event, 5)
+	ec := make(chan Event, 3)
 	rtopic := "notification-" + subscription + "*"
 
 	originalLength := len(es.subscribers[rtopic])
@@ -98,6 +102,7 @@ func (es *EventStream) FollowPattern(pattern string) (err error) {
 		}
 	} else {
 		// send request to subscribe to the background routine
+		es.Requests <- pattern
 	}
 	return
 }
@@ -115,9 +120,34 @@ func (es *EventStream) ListenToRedis(pattern string, callback chan error) {
 	defer es.Close()
 
 	for {
-		msg, err := es.Pubsub.ReceiveMessage()
+		if es.Pubsub == nil {
+			return
+		}
+		for keepProcessingRequests := true; keepProcessingRequests; {
+			select {
+			case newPattern := <-es.Requests:
+				es.Pubsub.PSubscribe(newPattern)
+			default:
+				//If there are no requests ready to receive, continue
+				keepProcessingRequests = false
+			}
+		}
+		msgi, err := es.Pubsub.ReceiveTimeout(100 * time.Millisecond)
 		if err != nil {
-			log.Println("Error receiving message:", err)
+			continue
+		}
+
+		var msg *redis.PMessage
+		switch msgt := msgi.(type) {
+		case *redis.Subscription:
+			if msgt.Kind == "punsubscribe" && msgt.Count == 0 {
+				return
+			}
+			continue
+		case *redis.PMessage:
+			msg = msgt
+		default:
+			log.Println(fmt.Sprintf("unknown message: %#v", msgi))
 			continue
 		}
 
@@ -125,18 +155,29 @@ func (es *EventStream) ListenToRedis(pattern string, callback chan error) {
 		if len(patternSubscribers) == 0 {
 			// There are no subscribers to notify about this event so
 			// skip to the next message. Maybe unsubscribe from pattern?
-			log.Println("No subscribers for this pattern")
+			log.Println("No subscribers for this pattern:", msg.Pattern)
+			es.Pubsub.PUnsubscribe(msg.Pattern)
 			continue
 		}
+
+		survivingSubscribers := make([]chan Event, 0)
+		channelWasRemoved := false
 
 		for i := range patternSubscribers {
 			subscriberChannel := patternSubscribers[i]
 			evt := ParseEventId(msg.Channel, msg.Payload)
 			select {
 			case subscriberChannel <- evt:
+				survivingSubscribers = append(survivingSubscribers, subscriberChannel)
 			default:
-				log.Println("skipped send to subscriber")
+				// If the send blocks just throw the subscriber out
+				channelWasRemoved = true
+				log.Println("Droping unresponsive channel")
 			}
+		}
+
+		if channelWasRemoved {
+			es.subscribers[msg.Pattern] = survivingSubscribers
 		}
 	}
 
@@ -144,6 +185,8 @@ func (es *EventStream) ListenToRedis(pattern string, callback chan error) {
 }
 
 func (es *EventStream) Close() {
-	es.Pubsub.Close()
-	es.Pubsub = nil
+	if es.Pubsub != nil {
+		es.Pubsub.Close()
+		es.Pubsub = nil
+	}
 }
