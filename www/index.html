@@ -4,6 +4,23 @@
 	<head>
 		<meta http-equiv="Content-type" content="text/html; charset=utf-8">
 		<title>Hello world</title>
+		<script type="text/javascript">
+		var ws = new WebSocket("ws://localhost:8080/socket/");
+		
+		ws.onopen = function() {
+			ws.send("hello world");
+			console.log("message sent");
+		};
+		
+		ws.onmessage = function(evt) {
+			var msg = evt.data;
+			console.log(msg);	
+		};
+		
+		ws.onclose = function() {
+			console.log("connection closed");
+		};
+		</script>
 	</head>
 	
 	<body>
