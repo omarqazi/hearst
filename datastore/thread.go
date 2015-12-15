@@ -105,7 +105,7 @@ func (t *Thread) AddMember(m *ThreadMember) error {
 		VALUES (:thread_id, :mailbox_id, :allow_read, :allow_write, :allow_notification);
 	`, m)
 	err := tx.Commit()
-	Stream.AnnounceEvent("thread-addmember-"+t.Id, m)
+	Stream.AnnounceEvent("threadmember-insert-"+t.Id, m)
 	return err
 }
 
@@ -117,7 +117,7 @@ func (m *ThreadMember) UpdatePermissions() error {
 		where thread_id = :thread_id and mailbox_id = :mailbox_id;
 	`, m)
 	err := tx.Commit()
-	Stream.AnnounceEvent("thread-updatemember-"+m.ThreadId, m)
+	Stream.AnnounceEvent("threadmember-update-"+m.ThreadId, m)
 	return err
 }
 
@@ -128,7 +128,7 @@ func (m *ThreadMember) Remove() error {
 		where thread_id = :thread_id and mailbox_id = :mailbox_id;
 	`, m)
 	err := tx.Commit()
-	Stream.AnnounceEvent("thread-removemember-"+m.ThreadId, m)
+	Stream.AnnounceEvent("threadmember-delete-"+m.ThreadId, m)
 	return err
 }
 

@@ -22,10 +22,8 @@ func init() {
 
 	if err := ConnectRedis(); err != nil {
 		log.Fatalln("Error connecting to redis:", err)
-	}
-
-	Stream = EventStream{
-		Client: RedisDb,
+	} else {
+		Stream = NewStream(RedisDb)
 	}
 }
 

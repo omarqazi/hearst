@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/omarqazi/hearst/datastore"
 	"log"
 	"net/http"
 )
@@ -14,5 +15,13 @@ func init() {
 }
 
 func main() {
+	es := datastore.NewStream(datastore.RedisDb)
+	ec := es.EventChannel("")
+
+	go func() {
+		for evt := range ec {
+			log.Println(evt.ModelClass, evt.Action, evt.ObjectId)
+		}
+	}()
 	log.Fatalln(errorMessage, http.ListenAndServe(bindAddress, nil))
 }
