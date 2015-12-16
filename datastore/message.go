@@ -9,8 +9,8 @@ import (
 
 type Message struct {
 	Id              string
-	ThreadId        string `db:"thread_id" json:"-"`
-	SenderMailboxId string `db:"sender_mailbox_id" json:"Sender"`
+	ThreadId        string `db:"thread_id"`
+	SenderMailboxId string `db:"sender_mailbox_id"`
 	CreatedAt       time.Time
 	UpdatedAt       time.Time   `json:"-"`
 	ExpiresAt       pq.NullTime `json:"-"`
@@ -22,7 +22,7 @@ type Message struct {
 
 func (t *Thread) RecentMessages(limit int) (mx []Message, err error) {
 	mx = []Message{}
-	err = PostgresDb.Select(&mx, "select * from messages where thread_id = $1 order by createdat asc limit $2;", t.Id, limit)
+	err = PostgresDb.Select(&mx, "select * from messages where thread_id = $1 order by createdat desc limit $2;", t.Id, limit)
 	return
 }
 

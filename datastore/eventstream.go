@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/jmoiron/sqlx/types"
 	"gopkg.in/redis.v3"
 	"log"
 	"strings"
@@ -22,10 +23,10 @@ type EventStream struct {
 
 // Event describes a model change even in the database
 type Event struct {
-	ModelClass string // what kind of object is it?
-	Action     string // either insert, update, or delete
-	ObjectId   string // the id of the object being modified
-	Payload    []byte // JSON data for object
+	ModelClass string         // what kind of object is it?
+	Action     string         // either insert, update, or delete
+	ObjectId   string         // the id of the object being modified
+	Payload    types.JsonText // JSON data for object
 }
 
 func ParseEventId(eventId string, payload string) (ev Event) {
