@@ -142,6 +142,7 @@ function loginStatusChanged(response) {
 		fbUserId = response.authResponse.userID;
 		$("#login_message").css("display","none");
 		$("#send_area").css("display","block");
+		$("#messagebox").focus();
 		RequestUserProfile();
 	} else if (response.status === "not_authorized") {
 		console.log("need to login to this app");
