@@ -3,23 +3,35 @@
 <html>
 	<head>
 		<meta http-equiv="Content-type" content="text/html; charset=utf-8">
-		<title>Hello world</title>
+		<title>shitty chat</title>
 		<link rel="stylesheet" href="/css/chat.css" type="text/css" media="screen">
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
 		<script type="text/javascript" src="/script/chat.js"></script>
+		<script src="https://use.typekit.net/tnf6llu.js"></script>
+		<script>try{Typekit.load({ async: true });}catch(e){}</script>
 	</head>
 	
 	<body>
+		<div id="fb-root"></div>
+		<script>(function(d, s, id) {
+		  var js, fjs = d.getElementsByTagName(s)[0];
+		  if (d.getElementById(id)) return;
+		  js = d.createElement(s); js.id = id;
+		  js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&version=v2.5&appId=392851110904455";
+		  fjs.parentNode.insertBefore(js, fjs);
+		}(document, 'script', 'facebook-jssdk'));</script>
+		
 		<h1 id="shitty_chat!">Shitty chat!</h1>
 		<div class="chat-area" id="chat_area">
 			
 		</div>
+
 		<div class="send-area" id="send_area">
 			<input type="text" id="messagebox" class="message-box" placeholder="enter a message to send" />
 		</div>
-		<div class="settings-area" id="settings_area">
-			Chat as:
-			<input type="text" id="namebox" class="name-box" placeholder="your name here" />
+		<div class="login-message" id="login_message">
+			Login with Facebook to chat!
 		</div>
+		<div onlogin="checkLoginState()" class="fb-login-button" data-scope="public_profile,user_friends,email" data-size="medium" data-show-faces="false" data-auto-logout-link="true"></div>
 	</body>
 </html>

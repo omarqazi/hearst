@@ -40,7 +40,7 @@ func GetMessage(uuid string) (Message, error) {
 
 func (m *Message) Insert() error {
 	m.RequireId()
-
+	m.CreatedAt = time.Now()
 	tx := PostgresDb.MustBegin()
 	_, err := tx.NamedExec(`
 		insert into messages

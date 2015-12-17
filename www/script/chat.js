@@ -2,6 +2,8 @@ var ws = new WebSocket("ws://localhost:8080/socket/");
 var followingThread = false;
 var connected = false;
 var loaded = false;
+var fbUserId = null;
+var userName = "Anonymous";
 
 ws.onopen = function() {
 	connected = true;
@@ -50,7 +52,10 @@ function SendMessage() {
 		"ThreadId" : "f6ac0efa-b342-4193-8be8-369cf09f43ce",
 		"SenderMailboxId" : "32e2b9e1-1a88-45dc-9c00-879e916efd92",
 		"Body" : newMessage,
-		"Labels" : {},
+		"Labels" : {
+			"SenderFacebookId" : fbUserId,
+			"SenderFacebookName" : userName
+		},
 		"Payload":{}
 	};
 	ws.send(JSON.stringify(messageInsertRequest));
@@ -72,14 +77,92 @@ function StartFollowingThread() {
 }
 
 function AppendMessage(msg) {
+	console.log(msg);
 	var messageDiv = document.createElement("div");
 	$(messageDiv).addClass("chat-message");
 	
-	var messageBody = document.createElement("span");
+	var messageSender = document.createElement("div");
+	$(messageSender).addClass("chat-message-sender");
+	
+	if (msg.Labels["SenderFacebookId"] !== null && msg.Labels["SenderFacebookId"] !== undefined) {
+		var senderPicture = document.createElement("img");
+		$(senderPicture).addClass("chat-sender-picture");
+		var picUrl = "http://graph.facebook.com/v2.5/" + msg.Labels["SenderFacebookId"] + "/picture?type=large";
+		$(senderPicture).attr("src",picUrl);
+		$(messageSender).append(senderPicture);
+	}
+	if (msg.Labels["SenderFacebookName"] !== null && msg.Labels["SenderFacebookName"] !== undefined) {
+		var senderName = document.createElement("span");
+		$(senderName).addClass("chat-message-sender-name");
+		$(senderName).html(msg.Labels["SenderFacebookName"] + ":");
+		$(messageSender).append(senderName);
+	}
+	
+	$(messageDiv).append(messageSender);
+
+	
+	var messageBody = document.createElement("div");
 	$(messageBody).addClass("chat-body");
 	$(messageBody).html(msg.Body);
 	$(messageDiv).append(messageBody);
 	
+	var createdDate = new Date(msg.CreatedAt);
+	var messageTime = document.createElement("div");
+	$(messageTime).addClass("message-time");
+	$(messageTime).html(createdDate.toLocaleTimeString());
+	$(messageDiv).append(messageTime);
+	
 	$("#chat_area").append(messageDiv);
 	$('#chat_area').scrollTop($('#chat_area')[0].scrollHeight);
+	setTimeout(function() {
+		$('#chat_area').scrollTop($('#chat_area')[0].scrollHeight);		
+	},200)
 }
+
+function RequestUserProfile() {
+	console.log('Welcome!  Fetching your information.... ');
+	FB.api('/me', function(response) {
+		userName = response.name;
+		console.log('Successful login for: ' + response.name);
+	});
+}
+
+function checkLoginState() {
+  FB.getLoginStatus(function(response) {
+    loginStatusChanged(response);
+  });
+}
+
+
+function loginStatusChanged(response) {
+	console.log("login status changed");
+	console.log(response);
+	
+	if (response.status == "connected") {
+		fbUserId = response.authResponse.userID;
+		$("#login_message").css("display","none");
+		$("#send_area").css("display","block");
+		RequestUserProfile();
+	} else if (response.status === "not_authorized") {
+		console.log("need to login to this app");
+		$("#login_message").css("display","block");
+		$("#send_area").css("display","none");
+	} else {
+		console.log("need to login to facebook");
+		$("#login_message").css("display","block");
+		$("#send_area").css("display","none");
+	}
+}
+
+window.fbAsyncInit = function() {
+	FB.init({
+		appId: "392851110904455",
+		cookie: true,
+		xfbml: true,
+		version: "v2.5"	
+	});
+	
+	FB.getLoginStatus(function(response) {
+		loginStatusChanged(response);
+	});
+};
