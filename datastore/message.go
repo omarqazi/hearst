@@ -51,6 +51,14 @@ func (m *Message) Insert() error {
 	if err != nil {
 		return err
 	}
+
+	_, err = tx.NamedExec(`
+		update threads set updatedat = now() where id = :thread_id;
+	`, m)
+	if err != nil {
+		return err
+	}
+
 	err = tx.Commit()
 	Stream.AnnounceEvent("message-insert-"+m.ThreadId, m)
 	return err

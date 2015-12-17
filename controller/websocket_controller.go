@@ -22,90 +22,143 @@ func (wsc WebSocketController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "error upgrading connection to WebSocket", 500)
 		return
 	}
+	defer conn.Close()
+
+	broadcastChannel := make(chan interface{}, 10)
+	go wsc.ProcessCommands(conn, broadcastChannel)
 
 	for {
-		var request map[string]string
-		err := conn.ReadJSON(&request)
-		if err != nil {
-			conn.Close()
-			return
-		}
-
-		keepConnection := true
-		if request["model"] == "mailbox" { // If mailbox
-			if _, ok := request["uuid"]; ok { // Get by UUID
-				keepConnection = wsc.GetMailbox(request, conn)
-			} else if action, ok := request["action"]; ok && action == "insert" { // Insert
-				keepConnection = wsc.InsertMailbox(request, conn)
-			} else if action == "update" { // Insert
-				keepConnection = wsc.UpdateMailbox(request, conn)
-			} else if action == "delete" {
-				keepConnection = wsc.DeleteMailbox(request, conn)
-			} else { // if not enough information
-				keepConnection = wsc.ErrorResponse("invalid mailbox request", conn)
+		select {
+		case responseItem := <-broadcastChannel:
+			if err = conn.WriteJSON(responseItem); err != nil {
+				return
 			}
-		} else if request["model"] == "thread" {
-			if _, ok := request["uuid"]; ok { // Get by UUID
-				keepConnection = wsc.GetThread(request, conn)
-			} else if action, ok := request["action"]; ok && action == "insert" {
-				keepConnection = wsc.InsertThread(request, conn)
-			} else if action == "update" {
-				keepConnection = wsc.UpdateThread(request, conn)
-			} else if action == "delete" {
-				keepConnection = wsc.DeleteThread(request, conn)
-			} else if action == "list" {
-				keepConnection = wsc.ListThread(request, conn)
-			} else {
-				keepConnection = wsc.ErrorResponse("invalid thread request", conn)
-			}
-		} else if request["model"] == "message" {
-			if _, ok := request["uuid"]; ok {
-				keepConnection = wsc.GetMessage(request, conn)
-			} else if action, ok := request["action"]; ok && action == "insert" {
-				keepConnection = wsc.InsertMessage(request, conn)
-			}
-		} else if request["model"] == "threadmember" {
-			_, threadOk := request["thread_id"]
-			_, mailboxOk := request["mailbox_id"]
-			action, ok := request["action"]
-
-			if threadOk && mailboxOk && ok {
-				switch action {
-				case "get":
-					keepConnection = wsc.GetThreadMember(request, conn)
-				case "insert":
-					keepConnection = wsc.InsertThreadMember(request, conn)
-				case "update":
-					keepConnection = wsc.UpdateThreadMember(request, conn)
-				case "delete":
-					keepConnection = wsc.DeleteThreadMember(request, conn)
-				default:
-					keepConnection = wsc.ErrorResponse("invalid action", conn)
-				}
-			} else {
-				keepConnection = wsc.ErrorResponse("thread_id, mailbox_id and action required", conn)
-			}
-		} else { // if request type unknown
-			// write back request
-			keepConnection = wsc.UnknownRequest(request, conn)
-		}
-
-		if !keepConnection {
-			conn.Close()
-			return
 		}
 	}
 }
 
-func (wsc WebSocketController) ListThread(request map[string]string, conn *websocket.Conn) bool {
+func (wsc WebSocketController) ProcessCommands(conn *websocket.Conn, broadcast chan interface{}) {
+	defer conn.Close()
+
+	for {
+		var request map[string]string
+		if err := conn.ReadJSON(&request); err != nil {
+			return
+		}
+
+		if request["model"] == "mailbox" { // If mailbox
+			wsc.HandleMailbox(request, conn, broadcast)
+		} else if request["model"] == "thread" {
+			wsc.HandleThread(request, conn, broadcast)
+		} else if request["model"] == "message" {
+			wsc.HandleMessage(request, conn, broadcast)
+		} else if request["model"] == "threadmember" {
+			wsc.HandleThreadMember(request, conn, broadcast)
+		} else { // if request type unknown
+			wsc.UnknownRequest(request, conn, broadcast)
+		}
+	}
+}
+
+func (wsc WebSocketController) HandleMailbox(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
+	var mailbox datastore.Mailbox
+
+	if _, ok := request["uuid"]; ok { // Get by UUID
+		go wsc.GetMailbox(request, conn, broadcast)
+	} else if action, ok := request["action"]; ok && action == "insert" { // Insert
+		if err := conn.ReadJSON(&mailbox); err != nil {
+			return
+		}
+		go wsc.InsertMailbox(request, conn, broadcast, mailbox)
+	} else if action == "update" { // Insert
+		if err := conn.ReadJSON(&mailbox); err != nil {
+			return
+		}
+		go wsc.UpdateMailbox(request, conn, broadcast, mailbox)
+	} else if action == "delete" {
+		go wsc.DeleteMailbox(request, conn, broadcast)
+	} else { // if not enough information
+		wsc.ErrorResponse("invalid mailbox request", conn, broadcast)
+	}
+}
+
+func (wsc WebSocketController) HandleThread(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
+	var thread datastore.Thread
+
+	if _, ok := request["uuid"]; ok { // Get by UUID
+		go wsc.GetThread(request, conn, broadcast)
+	} else if action, ok := request["action"]; ok && action == "insert" {
+		if err := conn.ReadJSON(&thread); err != nil {
+			return
+		}
+		go wsc.InsertThread(request, conn, broadcast, thread)
+	} else if action == "update" {
+		if err := conn.ReadJSON(&thread); err != nil {
+			return
+		}
+		go wsc.UpdateThread(request, conn, broadcast, thread)
+	} else if action == "delete" {
+		wsc.DeleteThread(request, conn, broadcast)
+	} else if action == "list" {
+		go wsc.ListThread(request, conn, broadcast)
+	} else {
+		wsc.ErrorResponse("invalid thread request", conn, broadcast)
+	}
+}
+
+func (wsc WebSocketController) HandleMessage(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
+	var message datastore.Message
+	if _, ok := request["uuid"]; ok {
+		go wsc.GetMessage(request, conn, broadcast)
+	} else if action, ok := request["action"]; ok && action == "insert" {
+		if err := conn.ReadJSON(&message); err != nil {
+			return
+		}
+		go wsc.InsertMessage(request, conn, broadcast, message)
+	}
+}
+
+func (wsc WebSocketController) HandleThreadMember(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
+	_, threadOk := request["thread_id"]
+	_, mailboxOk := request["mailbox_id"]
+	action, ok := request["action"]
+	var member datastore.ThreadMember
+
+	if threadOk && mailboxOk && ok {
+		switch action {
+		case "get":
+			go wsc.GetThreadMember(request, conn, broadcast)
+		case "insert":
+			if err := conn.ReadJSON(&member); err != nil {
+				return
+			}
+			go wsc.InsertThreadMember(request, conn, broadcast, member)
+		case "update":
+			if err := conn.ReadJSON(&member); err != nil {
+				return
+			}
+			go wsc.UpdateThreadMember(request, conn, broadcast, member)
+		case "delete":
+			go wsc.DeleteThreadMember(request, conn, broadcast)
+		default:
+			wsc.ErrorResponse("invalid action", conn, broadcast)
+		}
+	} else {
+		wsc.ErrorResponse("thread_id, mailbox_id and action required", conn, broadcast)
+	}
+}
+
+func (wsc WebSocketController) ListThread(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
 	threadId, ok := request["thread_id"]
 	if !ok {
-		return wsc.ErrorResponse("thread id required", conn)
+		wsc.ErrorResponse("thread id required", conn, broadcast)
+		return
 	}
 
 	thread, err := datastore.GetThread(threadId)
 	if err != nil {
-		return wsc.ErrorResponse("thread not found", conn)
+		wsc.ErrorResponse("thread not found", conn, broadcast)
+		return
 	}
 
 	limitString, ok := request["limit"]
@@ -116,7 +169,8 @@ func (wsc WebSocketController) ListThread(request map[string]string, conn *webso
 
 	messages, err := thread.RecentMessages(limit)
 	if err != nil {
-		return wsc.ErrorResponse(err.Error(), conn)
+		wsc.ErrorResponse(err.Error(), conn, broadcast)
+		return
 	}
 
 	followString, ok := request["follow"]
@@ -126,187 +180,136 @@ func (wsc WebSocketController) ListThread(request map[string]string, conn *webso
 		changeEvents = datastore.Stream.EventChannel("message-insert-" + thread.Id)
 	}
 
-	if err = conn.WriteJSON(messages); err != nil {
-		return false
-	}
+	broadcast <- messages
 
 	if shouldFollow {
 		for evt := range changeEvents {
-			if err = conn.WriteJSON([]datastore.Event{evt}); err != nil {
-				return false
-			}
+			wo(broadcast, []datastore.Event{evt})
 		}
 	}
 
-	return true
+	return
 }
 
-func (wsc WebSocketController) GetMailbox(request map[string]string, conn *websocket.Conn) bool {
+func (wsc WebSocketController) GetMailbox(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
 	mb, err := datastore.GetMailbox(request["uuid"])
 	if err != nil { // If mailbox not found
-		return wsc.ErrorResponse("not found", conn)
+		wsc.ErrorResponse("not found", conn, broadcast)
+		return
 	}
-
-	// Write mailbox response
-	if err = conn.WriteJSON(mb); err != nil {
-		return false
-	}
-
-	return true
+	broadcast <- mb
+	return
 }
 
-func (wsc WebSocketController) GetThread(request map[string]string, conn *websocket.Conn) bool {
+func (wsc WebSocketController) GetThread(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
 	thread, err := datastore.GetThread(request["uuid"])
 	if err != nil {
-		return wsc.ErrorResponse("not found", conn)
+		wsc.ErrorResponse("not found", conn, broadcast)
+		return
 	}
-
-	if err = conn.WriteJSON(thread); err != nil {
-		return false
-	}
-
-	return true
+	broadcast <- thread
+	return
 }
 
-func (wsc WebSocketController) GetMessage(request map[string]string, conn *websocket.Conn) bool {
+func (wsc WebSocketController) GetMessage(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
 	message, err := datastore.GetMessage(request["uuid"])
 	if err != nil {
-		return wsc.ErrorResponse("not found", conn)
+		wsc.ErrorResponse("not found", conn, broadcast)
+		return
 	}
-
-	if err = conn.WriteJSON(message); err != nil {
-		return false
-	}
-
-	return true
+	broadcast <- message
+	return
 }
 
-func (wsc WebSocketController) GetThreadMember(request map[string]string, conn *websocket.Conn) bool {
+func (wsc WebSocketController) GetThreadMember(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
 	thread, err := datastore.GetThread(request["thread_id"])
 	if err != nil {
-		return wsc.ErrorResponse("thread not found", conn)
+		wsc.ErrorResponse("thread not found", conn, broadcast)
+		return
 	}
 
 	member, err := thread.GetMember(request["mailbox_id"])
 	if err != nil {
-		return wsc.ErrorResponse("member not found", conn)
+		wsc.ErrorResponse("member not found", conn, broadcast)
+		return
 	}
-
-	if err = conn.WriteJSON(member); err != nil {
-		return false
-	}
-
-	return true
+	wo(broadcast, member)
+	return
 }
 
-func (wsc WebSocketController) InsertMailbox(request map[string]string, conn *websocket.Conn) bool {
-	var mailbox datastore.Mailbox
-	err := conn.ReadJSON(&mailbox)
-	if err != nil {
-		return false
-	}
-
+func (wsc WebSocketController) InsertMailbox(request map[string]string, conn *websocket.Conn, broadcast chan interface{}, mailbox datastore.Mailbox) {
 	if err := mailbox.Insert(); err != nil {
-		return wsc.ErrorResponse(err.Error(), conn)
+		wsc.ErrorResponse(err.Error(), conn, broadcast)
+		return
 	}
 
 	mb, erx := datastore.GetMailbox(mailbox.Id)
 	if erx != nil {
-		return wsc.ErrorResponse(erx.Error(), conn)
+		wsc.ErrorResponse(erx.Error(), conn, broadcast)
+		return
 	}
-
-	if err = conn.WriteJSON(mb); err != nil {
-		return false
-	}
-
-	return true
+	wo(broadcast, mb)
+	return
 }
 
-func (wsc WebSocketController) InsertThread(request map[string]string, conn *websocket.Conn) bool {
-	var thread datastore.Thread
-	err := conn.ReadJSON(&thread)
-	if err != nil {
-		return false
-	}
-
+func (wsc WebSocketController) InsertThread(request map[string]string, conn *websocket.Conn, broadcast chan interface{}, thread datastore.Thread) {
 	if err := thread.Insert(); err != nil {
-		return wsc.ErrorResponse(err.Error(), conn)
+		wsc.ErrorResponse(err.Error(), conn, broadcast)
+		return
 	}
 
 	tr, erx := datastore.GetThread(thread.Id)
 	if erx != nil {
-		return wsc.ErrorResponse(erx.Error(), conn)
+		wsc.ErrorResponse(erx.Error(), conn, broadcast)
+		return
 	}
-
-	if err = conn.WriteJSON(tr); err != nil {
-		return false
-	}
-
-	return true
+	wo(broadcast, tr)
 }
 
-func (wsc WebSocketController) InsertMessage(request map[string]string, conn *websocket.Conn) bool {
-	var message datastore.Message
-	err := conn.ReadJSON(&message)
-	if err != nil {
-		return false
-	}
-
+func (wsc WebSocketController) InsertMessage(request map[string]string, conn *websocket.Conn, broadcast chan interface{}, message datastore.Message) {
 	if err := message.Insert(); err != nil {
-		return wsc.ErrorResponse(err.Error(), conn)
+		wsc.ErrorResponse(err.Error(), conn, broadcast)
+		return
 	}
 
 	msg, erx := datastore.GetMessage(message.Id)
 	if erx != nil {
-		return wsc.ErrorResponse(erx.Error(), conn)
+		wsc.ErrorResponse(erx.Error(), conn, broadcast)
+		return
 	}
 
-	if err = conn.WriteJSON(msg); err != nil {
-		return false
-	}
-
-	return true
+	wo(broadcast, msg)
+	return
 }
 
-func (wsc WebSocketController) InsertThreadMember(request map[string]string, conn *websocket.Conn) bool {
+func (wsc WebSocketController) InsertThreadMember(request map[string]string, conn *websocket.Conn, broadcast chan interface{}, member datastore.ThreadMember) {
 	thread, err := datastore.GetThread(request["thread_id"])
 	if err != nil {
-		return wsc.ErrorResponse("thread not found", conn)
+		wsc.ErrorResponse("thread not found", conn, broadcast)
+		return
 	}
 
 	mailbox, err := datastore.GetMailbox(request["mailbox_id"])
 	if err != nil {
-		return wsc.ErrorResponse("mailbox not found", conn)
+		wsc.ErrorResponse("mailbox not found", conn, broadcast)
+		return
 	}
 
-	var member datastore.ThreadMember
-	err = conn.ReadJSON(&member)
-	if err != nil {
-		return false
-	}
 	member.MailboxId = mailbox.Id
-
 	if err = thread.AddMember(&member); err != nil {
-		return wsc.ErrorResponse(err.Error(), conn)
+		wsc.ErrorResponse(err.Error(), conn, broadcast)
+		return
 	}
 
-	if err = conn.WriteJSON(member); err != nil {
-		return false
-	}
-
-	return true
+	wo(broadcast, member)
+	return
 }
 
-func (wsc WebSocketController) UpdateMailbox(request map[string]string, conn *websocket.Conn) bool {
-	var mailbox datastore.Mailbox
-	err := conn.ReadJSON(&mailbox)
-	if err != nil {
-		return false
-	}
-
+func (wsc WebSocketController) UpdateMailbox(request map[string]string, conn *websocket.Conn, broadcast chan interface{}, mailbox datastore.Mailbox) {
 	mb, erx := datastore.GetMailbox(mailbox.Id)
 	if erx != nil {
-		return wsc.ErrorResponse(erx.Error(), conn)
+		wsc.ErrorResponse(erx.Error(), conn, broadcast)
+		return
 	}
 
 	if mailbox.PublicKey == "" {
@@ -318,31 +321,24 @@ func (wsc WebSocketController) UpdateMailbox(request map[string]string, conn *we
 	}
 
 	if err := mailbox.Update(); err != nil {
-		return wsc.ErrorResponse(err.Error(), conn)
+		wsc.ErrorResponse(err.Error(), conn, broadcast)
+		return
 	}
 
 	mb, erx = datastore.GetMailbox(mailbox.Id)
 	if erx != nil {
-		return wsc.ErrorResponse(erx.Error(), conn)
+		wsc.ErrorResponse(erx.Error(), conn, broadcast)
+		return
 	}
-
-	if err = conn.WriteJSON(mb); err != nil {
-		return false
-	}
-
-	return true
+	wo(broadcast, mb)
+	return
 }
 
-func (wsc WebSocketController) UpdateThread(request map[string]string, conn *websocket.Conn) bool {
-	var thread datastore.Thread
-	err := conn.ReadJSON(&thread)
-	if err != nil {
-		return false
-	}
-
+func (wsc WebSocketController) UpdateThread(request map[string]string, conn *websocket.Conn, broadcast chan interface{}, thread datastore.Thread) {
 	tr, erx := datastore.GetThread(thread.Id)
 	if erx != nil {
-		return wsc.ErrorResponse(erx.Error(), conn)
+		wsc.ErrorResponse(erx.Error(), conn, broadcast)
+		return
 	}
 
 	if thread.Subject == "" {
@@ -350,116 +346,107 @@ func (wsc WebSocketController) UpdateThread(request map[string]string, conn *web
 	}
 
 	if err := thread.Update(); err != nil {
-		return wsc.ErrorResponse(err.Error(), conn)
+		wsc.ErrorResponse(err.Error(), conn, broadcast)
+		return
 	}
 
 	tr, erx = datastore.GetThread(thread.Id)
 	if erx != nil {
-		return wsc.ErrorResponse(erx.Error(), conn)
+		wsc.ErrorResponse(erx.Error(), conn, broadcast)
+		return
 	}
-
-	if err = conn.WriteJSON(tr); err != nil {
-		return false
-	}
-
-	return true
+	wo(broadcast, tr)
+	return
 }
 
-func (wsc WebSocketController) UpdateThreadMember(request map[string]string, conn *websocket.Conn) bool {
-	var mem datastore.ThreadMember
-	err := conn.ReadJSON(&mem)
-	if err != nil {
-		return false
-	}
-
+func (wsc WebSocketController) UpdateThreadMember(request map[string]string, conn *websocket.Conn, broadcast chan interface{}, mem datastore.ThreadMember) {
 	thread, err := datastore.GetThread(request["thread_id"])
 	if err != nil {
-		return wsc.ErrorResponse("thread not found", conn)
+		wsc.ErrorResponse("thread not found", conn, broadcast)
+		return
 	}
 
 	member, err := thread.GetMember(request["mailbox_id"])
 	if err != nil {
-		return wsc.ErrorResponse("member not found", conn)
+		wsc.ErrorResponse("member not found", conn, broadcast)
+		return
 	}
 
 	mem.ThreadId = member.ThreadId
 	mem.MailboxId = member.MailboxId
 
 	if err = mem.UpdatePermissions(); err != nil {
-		return wsc.ErrorResponse(err.Error(), conn)
+		wsc.ErrorResponse(err.Error(), conn, broadcast)
+		return
 	}
-
-	return true
+	wo(broadcast, mem)
+	return
 }
 
-func (wsc WebSocketController) DeleteMailbox(request map[string]string, conn *websocket.Conn) bool {
+func (wsc WebSocketController) DeleteMailbox(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
 	if uuid, ok := request["delete_mailbox"]; ok {
 		mailbox := datastore.Mailbox{Id: uuid}
 		if err := mailbox.Delete(); err != nil {
-			return wsc.ErrorResponse(err.Error(), conn)
+			wsc.ErrorResponse(err.Error(), conn, broadcast)
+			return
 		}
 
-		if err := conn.WriteJSON(mailbox); err != nil {
-			return false
-		}
-
-		return true
+		wo(broadcast, mailbox)
+		return
 	}
 
-	return wsc.ErrorResponse("provide id to delete in delete_mailbox parameter", conn)
+	wsc.ErrorResponse("provide id to delete in delete_mailbox parameter", conn, broadcast)
+	return
 }
 
-func (wsc WebSocketController) DeleteThread(request map[string]string, conn *websocket.Conn) bool {
+func (wsc WebSocketController) DeleteThread(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
 	if uuid, ok := request["delete_thread"]; ok {
 		thread := datastore.Thread{Id: uuid}
 		if err := thread.Delete(); err != nil {
-			return wsc.ErrorResponse(err.Error(), conn)
+			wsc.ErrorResponse(err.Error(), conn, broadcast)
+			return
 		}
 
-		if err := conn.WriteJSON(thread); err != nil {
-			return false
-		}
-
-		return true
+		wo(broadcast, thread)
+		return
 	}
 
-	return wsc.ErrorResponse("provide id to delete in delete_thread parameter", conn)
+	wsc.ErrorResponse("provide id to delete in delete_thread parameter", conn, broadcast)
+	return
 }
 
-func (wsc WebSocketController) DeleteThreadMember(request map[string]string, conn *websocket.Conn) bool {
+func (wsc WebSocketController) DeleteThreadMember(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
 	thread, err := datastore.GetThread(request["thread_id"])
 	if err != nil {
-		return wsc.ErrorResponse("thread not found", conn)
+		wsc.ErrorResponse("thread not found", conn, broadcast)
+		return
 	}
 
 	member, err := thread.GetMember(request["mailbox_id"])
 	if err != nil {
-		return wsc.ErrorResponse("member not found", conn)
+		wsc.ErrorResponse("member not found", conn, broadcast)
+		return
 	}
 
 	if err := member.Remove(); err != nil {
-		return wsc.ErrorResponse(err.Error(), conn)
+		wsc.ErrorResponse(err.Error(), conn, broadcast)
+		return
 	}
-
-	if err := conn.WriteJSON(member); err != nil {
-		return false
-	}
-
-	return true
+	wo(broadcast, member)
+	return
 }
 
-func (wsc WebSocketController) ErrorResponse(message string, conn *websocket.Conn) bool {
-	errorPayload := map[string]string{"error": message}
-	if err := conn.WriteJSON(errorPayload); err != nil {
-		return false
-	}
-	return true
+func (wsc WebSocketController) ErrorResponse(message string, conn *websocket.Conn, broadcast chan interface{}) {
+	wo(broadcast, map[string]string{"error": message})
 }
 
-func (wsc WebSocketController) UnknownRequest(request map[string]string, conn *websocket.Conn) bool {
-	if err := conn.WriteJSON(request); err != nil {
-		return false
-	}
+func (wsc WebSocketController) UnknownRequest(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
+	wo(broadcast, request)
+}
 
-	return true
+func wo(broadcast chan interface{}, obj interface{}) {
+	select {
+	case broadcast <- obj:
+	default:
+	}
 }
