@@ -1,4 +1,4 @@
-var ws = new WebSocket("ws://localhost:8080/socket/");
+var ws = new WebSocket("ws://chat.smick.co/socket/");
 var followingThread = false;
 var connected = false;
 var loaded = false;
