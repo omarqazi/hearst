@@ -49,8 +49,8 @@ function SendMessage() {
 		"action":"insert"
 	};
 	var newMessage = {
-		"ThreadId" : "f6ac0efa-b342-4193-8be8-369cf09f43ce",
-		"SenderMailboxId" : "32e2b9e1-1a88-45dc-9c00-879e916efd92",
+		"ThreadId" : "60bec351-0a7d-4a30-8eb5-af942ad371f4",
+		"SenderMailboxId" : "74e82cc4-4291-49cf-845d-c290ea2b3318",
 		"Body" : newMessage,
 		"Labels" : {
 			"SenderFacebookId" : fbUserId,
@@ -71,7 +71,7 @@ function StartFollowingThread() {
 		"action":"list",
 		"follow":"true",
 		"limit":"100",
-		"thread_id":"f6ac0efa-b342-4193-8be8-369cf09f43ce"
+		"thread_id":"60bec351-0a7d-4a30-8eb5-af942ad371f4"
 	};
 	ws.send(JSON.stringify(threadOpenRequest));
 }
