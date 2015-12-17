@@ -60,7 +60,7 @@ func (c MailboxController) PostMailbox(w http.ResponseWriter, r *http.Request) {
 
 	if err := mailbox.Insert(); err != nil {
 		w.WriteHeader(500)
-		fmt.Fprintln(w, "error saving mailbox")
+		fmt.Fprintln(w, "error saving mailbox:", err.Error())
 		return
 	}
 
