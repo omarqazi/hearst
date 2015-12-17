@@ -87,7 +87,7 @@ function AppendMessage(msg) {
 	if (msg.Labels["SenderFacebookId"] !== null && msg.Labels["SenderFacebookId"] !== undefined) {
 		var senderPicture = document.createElement("img");
 		$(senderPicture).addClass("chat-sender-picture");
-		var picUrl = "http://graph.facebook.com/v2.5/" + msg.Labels["SenderFacebookId"] + "/picture?type=large";
+		var picUrl = "http://graph.facebook.com/v2.5/" + msg.Labels["SenderFacebookId"] + "/picture?height=100&width=100";
 		$(senderPicture).attr("src",picUrl);
 		$(messageSender).append(senderPicture);
 	}
