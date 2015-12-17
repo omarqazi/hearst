@@ -6,6 +6,7 @@ import (
 	_ "github.com/lib/pq"
 	"gopkg.in/redis.v3"
 	"log"
+	"os"
 )
 
 const connectionString = "dbname=hearst user=postgres password=postgres sslmode=disable"
@@ -27,14 +28,30 @@ func init() {
 	}
 }
 
+func postgresConnectionString() string {
+	if postgresAddr := os.Getenv("HEARST_POSTGRES"); postgresAddr != "" {
+		return postgresAddr
+	} else {
+		return connectionString
+	}
+}
+
+func redisConnectionString() string {
+	if redisAddr := os.Getenv("HEARST_REDIS"); redisAddr != "" {
+		return redisAddr
+	} else {
+		return redisHost
+	}
+}
+
 func ConnectPostgres() (err error) {
-	PostgresDb, err = sqlx.Open("postgres", connectionString)
+	PostgresDb, err = sqlx.Open("postgres", postgresConnectionString())
 	return
 }
 
 func ConnectRedis() (err error) {
 	RedisDb = redis.NewClient(&redis.Options{
-		Addr: redisHost,
+		Addr: redisConnectionString(),
 	})
 
 	_, err = RedisDb.Ping().Result()
