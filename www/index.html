@@ -4,26 +4,22 @@
 	<head>
 		<meta http-equiv="Content-type" content="text/html; charset=utf-8">
 		<title>Hello world</title>
-		<script type="text/javascript">
-		var ws = new WebSocket("ws://localhost:8080/socket/");
-		
-		ws.onopen = function() {
-			ws.send("hello world");
-			console.log("message sent");
-		};
-		
-		ws.onmessage = function(evt) {
-			var msg = evt.data;
-			console.log(msg);	
-		};
-		
-		ws.onclose = function() {
-			console.log("connection closed");
-		};
-		</script>
+		<link rel="stylesheet" href="/css/chat.css" type="text/css" media="screen">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+		<script type="text/javascript" src="/script/chat.js"></script>
 	</head>
 	
 	<body>
-		Hello world
+		<h1 id="shitty_chat!">Shitty chat!</h1>
+		<div class="chat-area" id="chat_area">
+			
+		</div>
+		<div class="send-area" id="send_area">
+			<input type="text" id="messagebox" class="message-box" placeholder="enter a message to send" />
+		</div>
+		<div class="settings-area" id="settings_area">
+			Chat as:
+			<input type="text" id="namebox" class="name-box" placeholder="your name here" />
+		</div>
 	</body>
 </html>

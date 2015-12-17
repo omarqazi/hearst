@@ -1,0 +1,29 @@
+h1 {
+	font-family : 'Helvetica';
+}
+div.chat-area {
+	height : 400px;
+	border : 3px solid #aaa;
+	border-radius : 4px;
+	padding : 15px;
+	overflow-y : scroll;
+}
+div.send-area {
+	width : 100%;
+}
+
+div.send-area input {
+	width : 98%;
+	font-size : 1.2em;
+	padding : 12px;
+}
+
+div.settings-area {
+	margin-top : 20px;
+	font-family : 'Helvetica';
+}
+
+div.settings-area input {
+	font-size : 1.1.em;
+	padding : 5px;
+}
