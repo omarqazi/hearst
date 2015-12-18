@@ -5,6 +5,7 @@ import (
 	"github.com/omarqazi/hearst/datastore"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 var upgrader = websocket.Upgrader{
@@ -26,11 +27,21 @@ func (wsc WebSocketController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	broadcastChannel := make(chan interface{}, 10)
 	go wsc.ProcessCommands(conn, broadcastChannel)
+	conn.SetPongHandler(func(appData string) error {
+		return nil
+	})
+
+	ticker := time.Tick(15 * time.Second)
 
 	for {
 		select {
 		case responseItem := <-broadcastChannel:
 			if err = conn.WriteJSON(responseItem); err != nil {
+				return
+			}
+		case <-ticker:
+			deadline := time.Now().Add(15 * time.Second)
+			if err = conn.WriteControl(websocket.PingMessage, []byte{}, deadline); err != nil {
 				return
 			}
 		}
@@ -180,7 +191,7 @@ func (wsc WebSocketController) ListThread(request map[string]string, conn *webso
 		changeEvents = datastore.Stream.EventChannel("message-insert-" + thread.Id)
 	}
 
-	broadcast <- messages
+	wo(broadcast, messages)
 
 	if shouldFollow {
 		for evt := range changeEvents {
@@ -197,7 +208,7 @@ func (wsc WebSocketController) GetMailbox(request map[string]string, conn *webso
 		wsc.ErrorResponse("not found", conn, broadcast)
 		return
 	}
-	broadcast <- mb
+	wo(broadcast, mb)
 	return
 }
 
@@ -207,7 +218,7 @@ func (wsc WebSocketController) GetThread(request map[string]string, conn *websoc
 		wsc.ErrorResponse("not found", conn, broadcast)
 		return
 	}
-	broadcast <- thread
+	wo(broadcast, thread)
 	return
 }
 
@@ -217,7 +228,7 @@ func (wsc WebSocketController) GetMessage(request map[string]string, conn *webso
 		wsc.ErrorResponse("not found", conn, broadcast)
 		return
 	}
-	broadcast <- message
+	wo(broadcast, message)
 	return
 }
 

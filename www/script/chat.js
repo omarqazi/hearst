@@ -1,33 +1,46 @@
-var ws = new WebSocket("ws://chat.smick.co/socket/");
+var ws = null;
 var followingThread = false;
 var connected = false;
 var loaded = false;
 var fbUserId = null;
 var userName = "Anonymous";
 
-ws.onopen = function() {
-	connected = true;
-	console.log("connection opened");
-	if (loaded && !followingThread) {
-		StartFollowingThread();		
-	}
-};
+function EstablishConnection() {
+	ws = new WebSocket("ws://testing.smick.tv:8080/socket/");
 
-ws.onmessage = function(evt) {
-	var msg = JSON.parse(evt.data);
-	if (msg[0].ModelClass !== undefined && msg[0].ModelClass == "message") {
-		AppendMessage(msg[0].Payload);
-		return;
-	}
-	
-	for (var i = msg.length - 1;i > -1;i--) {
-		AppendMessage(msg[i]);
-	}
-};
+	ws.onopen = function() {
+		connected = true;
+		console.log("connection opened");
+		if (loaded && !followingThread) {
+			StartFollowingThread();		
+		}
+	};
 
-ws.onclose = function() {
-	console.log("connection closed");
-};
+	ws.onmessage = function(evt) {
+		var msg = JSON.parse(evt.data);
+		
+		if (msg instanceof Array) { // New messages and message events come in an array
+			if (msg[0].ModelClass !== undefined && msg[0].ModelClass == "message") {
+				AppendMessage(msg[0].Payload);
+				return;
+			}
+		
+			$("#chat_area *").remove();
+			for (var i = msg.length - 1;i > -1;i--) {
+				AppendMessage(msg[i]);
+			}
+		} else {
+			// handle other responses
+		}
+	};
+
+	ws.onclose = function() {
+		console.log("connection closed");
+		EstablishConnection();
+	};
+
+}
+EstablishConnection();
 
 window.onload = function() {
 	loaded = true
@@ -77,7 +90,6 @@ function StartFollowingThread() {
 }
 
 function AppendMessage(msg) {
-	console.log(msg);
 	var messageDiv = document.createElement("div");
 	$(messageDiv).addClass("chat-message");
 	
