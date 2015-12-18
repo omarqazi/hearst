@@ -6,7 +6,8 @@ var fbUserId = null;
 var userName = "Anonymous";
 
 function EstablishConnection() {
-	ws = new WebSocket("ws://testing.smick.tv:8080/socket/");
+	var host = location.host;
+	ws = new WebSocket("ws://" + host + "/socket/");
 
 	ws.onopen = function() {
 		connected = true;
