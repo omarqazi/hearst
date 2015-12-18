@@ -36,7 +36,9 @@ function EstablishConnection() {
 
 	ws.onclose = function() {
 		console.log("connection closed");
-		EstablishConnection();
+		setTimeout(function() {
+			EstablishConnection();
+		},1500);
 	};
 
 }
