@@ -5,6 +5,6 @@ development:
   dialect: postgres
 testing:
   driver: postgres
-  open: dbname=travis_ci_test user=postgres sslmode=disable
+  open: dbname=hearst user=postgres sslmode=disable
   import: github.com/lib/pq
   dialect: postgres

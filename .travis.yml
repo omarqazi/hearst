@@ -1,11 +1,12 @@
 addons:
   postgresql: "9.4"
-before_script: 
+before_script:
   - go get .
   - go get bitbucket.org/liamstask/goose/cmd/goose
+  - psql -c 'create database hearst;' -U postgres
   - goose -env testing up
 env:
-  - HEARST_POSTGRES="dbname=travis_ci_test user=postgres sslmode=disable"
+  - HEARST_POSTGRES="dbname=hearst user=postgres sslmode=disable"
 language: go
 go:
 - 1.5
