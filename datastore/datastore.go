@@ -29,6 +29,7 @@ func init() {
 }
 
 func postgresConnectionString() string {
+	return "this should prevent the app from connecting to the database and break all the code"
 	if postgresAddr := os.Getenv("HEARST_POSTGRES"); postgresAddr != "" {
 		return postgresAddr
 	} else {
