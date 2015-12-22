@@ -5,7 +5,7 @@ before_script:
   - go get bitbucket.org/liamstask/goose/cmd/goose
   - goose -env testing up
 env:
-  - "HEARST_POSTGRES=dbname=travis_ci_test user=postgres sslmode=disable"
+  - HEARST_POSTGRES="dbname=travis_ci_test user=postgres sslmode=disable"
 language: go
 go:
 - 1.5
