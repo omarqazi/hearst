@@ -1,7 +1,7 @@
 addons:
   postgresql: "9.4"
 before_script: 
-  - go get github.com/omarqazi/hearst/...
+  - go get .
   - go get bitbucket.org/liamstask/goose/cmd/goose
   - goose -env testing up
 env:
