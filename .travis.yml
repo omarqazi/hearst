@@ -1,0 +1,9 @@
+language: go
+
+go:
+- 1.5
+
+services:
+  - redis-server
+before_script: go get github.com/omarqazi/guide/...
+script: go test -v ./...
