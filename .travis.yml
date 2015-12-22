@@ -14,3 +14,5 @@ script: make test
 services:
   - redis-server
   - postgresql
+notifications:
+  slack: spreemobile:c2CbzAyiMkDCJh4QcpovcfPW
