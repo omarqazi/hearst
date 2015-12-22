@@ -1,16 +1,15 @@
-language: go
-
-go:
-- 1.5
 addons:
   postgresql: "9.4"
+before_script: 
+  - go get github.com/omarqazi/hearst/...
+  - go get bitbucket.org/liamstask/goose/cmd/goose
+  - goose -env testing up
+env:
+  - HEARST_POSTGRES=dbname=travis_ci_test user=postgres sslmode=disable
+language: go
+go:
+- 1.5
+script: go test -v ./...
 services:
   - redis-server
   - postgresql
-before_script: 
-	- go get github.com/omarqazi/hearst/...
-	- go get bitbucket.org/liamstask/goose/cmd/goose
-	- goose -env testing up
-script: go test -v ./...
-env:
-- HEARST_POSTGRES=dbname=travis_ci_test user=postgres sslmode=disable
