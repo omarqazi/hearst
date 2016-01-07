@@ -455,9 +455,11 @@ func (wsc WebSocketController) UnknownRequest(request map[string]string, conn *w
 	wo(broadcast, request)
 }
 
-func wo(broadcast chan interface{}, obj interface{}) {
+func wo(broadcast chan interface{}, obj interface{}) bool {
 	select {
 	case broadcast <- obj:
+		return true
 	default:
+		return false
 	}
 }
