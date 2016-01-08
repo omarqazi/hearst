@@ -195,7 +195,9 @@ func (wsc WebSocketController) ListThread(request map[string]string, conn *webso
 
 	if shouldFollow {
 		for evt := range changeEvents {
-			wo(broadcast, []datastore.Event{evt})
+			if ok := wo(broadcast, []datastore.Event{evt}); !ok {
+				return
+			}
 		}
 	}
 
