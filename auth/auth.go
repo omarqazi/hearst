@@ -77,6 +77,11 @@ func ValidateSignatureForMessage(msg string, sig []byte, pub *rsa.PublicKey) (er
 	io.WriteString(hashFunction, msg)
 	hashSum := hashFunction.Sum(nil)
 
+	err = ValidateSignatureForHash(hashSum, sig, pub)
+	return
+}
+
+func ValidateSignatureForHash(hashSum []byte, sig []byte, pub *rsa.PublicKey) (err error) {
 	err = rsa.VerifyPSS(pub, crypto.SHA256, hashSum, sig, nil)
 	return
 }
