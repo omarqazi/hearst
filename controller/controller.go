@@ -52,7 +52,11 @@ func authorizedMailbox(r *http.Request) (mb datastore.Mailbox, err error) {
 		return mb, er
 	}
 
-	session := auth.ParseSession(sessionToken)
+	session, erx := auth.ParseSession(sessionToken)
+	if erx != nil {
+		return mb, erx
+	}
+
 	err = session.Valid(pubKey, &serverSessionKey.PublicKey)
 	return
 }

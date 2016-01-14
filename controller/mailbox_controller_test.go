@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/omarqazi/hearst/auth"
 	"github.com/omarqazi/hearst/datastore"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 var mbc = http.StripPrefix("/mailbox/", MailboxController{})
@@ -115,9 +117,19 @@ func TestMailboxPostRequest(t *testing.T) {
 }
 
 func TestMailboxPutRequest(t *testing.T) {
+	clientKey, err := auth.GeneratePrivateKey(2048)
+	if err != nil {
+		t.Fatal("Error generating private key", err)
+	}
+
+	pubKey, err := auth.StringForPublicKey(&clientKey.PublicKey)
+	if err != nil {
+		t.Fatal("Error generating string for public key", err)
+	}
+
 	mailbox := datastore.Mailbox{
 		DeviceId:  "something",
-		PublicKey: "else",
+		PublicKey: pubKey,
 	}
 
 	if err := mailbox.Insert(); err != nil {
@@ -126,8 +138,8 @@ func TestMailboxPutRequest(t *testing.T) {
 	}
 	defer mailbox.Delete()
 
-	newPublicKey := "other"
-	mailbox.PublicKey = newPublicKey
+	newDeviceId := "else"
+	mailbox.DeviceId = newDeviceId
 	mailboxBytes, err := json.Marshal(mailbox)
 	if err != nil {
 		t.Error("Error marshaling put body JSON for mailbox:", err)
@@ -142,6 +154,26 @@ func TestMailboxPutRequest(t *testing.T) {
 		return
 	}
 
+	req.Header.Add("X-Hearst-Mailbox", mailbox.Id)
+
+	token, err := auth.NewToken(serverSessionKey)
+	if err != nil {
+		t.Fatal("Error generating token", err)
+	}
+
+	session := auth.Session{
+		Token:    token,
+		Duration: 300 * time.Second,
+	}
+	sig, err := session.SignatureFor(clientKey)
+	if err != nil {
+		t.Fatal("Error signing session:", err)
+	}
+
+	session.Signature = sig
+
+	req.Header.Add("X-Hearst-Session", session.String())
+
 	w := httptest.NewRecorder()
 	mbc.ServeHTTP(w, req)
 	if w.Code > 299 || w.Code < 200 {
@@ -155,8 +187,8 @@ func TestMailboxPutRequest(t *testing.T) {
 		return
 	}
 
-	if mbx.PublicKey != newPublicKey {
-		t.Error("Expected PUT request to update public key to", newPublicKey, "but found", mbx.PublicKey)
+	if mbx.DeviceId != newDeviceId {
+		t.Error("Expected PUT request to update public key to", newDeviceId, "but found", mbx.DeviceId)
 		return
 	}
 }
