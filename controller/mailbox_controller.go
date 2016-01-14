@@ -12,9 +12,10 @@ type MailboxController struct {
 }
 
 func (c MailboxController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var authorizedUser datastore.Mailbox
+	var err error
 	if r.Method == "PUT" || r.Method == "DELETE" {
-		if _, err := authorizedMailbox(r); err != nil {
-			log.Println(err)
+		if authorizedUser, err = authorizedMailbox(r); err != nil {
 			http.Error(w, "invalid session token", 403)
 			return
 		}
@@ -26,9 +27,9 @@ func (c MailboxController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "POST":
 		c.PostMailbox(w, r)
 	case "PUT":
-		c.PutMailbox(w, r)
+		c.PutMailbox(w, r, &authorizedUser)
 	case "DELETE":
-		c.DeleteMailbox(w, r)
+		c.DeleteMailbox(w, r, &authorizedUser)
 	default:
 		c.HandleUnknown(w, r)
 	}
@@ -78,7 +79,7 @@ func (c MailboxController) PostMailbox(w http.ResponseWriter, r *http.Request) {
 // Function PutMailbox handles an HTTP PUT request
 // by parsing the JSON request body and updating
 // the existing database record
-func (c MailboxController) PutMailbox(w http.ResponseWriter, r *http.Request) {
+func (c MailboxController) PutMailbox(w http.ResponseWriter, r *http.Request, authorizedUser *datastore.Mailbox) {
 	var mailbox datastore.Mailbox
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&mailbox); err != nil {
@@ -89,6 +90,10 @@ func (c MailboxController) PutMailbox(w http.ResponseWriter, r *http.Request) {
 
 	if mailbox.Id == "" {
 		mailbox.Id = rid(r)
+	}
+
+	if authorizedUser.Id != mailbox.Id {
+		http.Error(w, "access denied", 403)
 	}
 
 	dbBox, erx := datastore.GetMailbox(mailbox.Id)
@@ -115,8 +120,13 @@ func (c MailboxController) PutMailbox(w http.ResponseWriter, r *http.Request) {
 	c.GetMailbox(mailbox.Id, w, r)
 }
 
-func (c MailboxController) DeleteMailbox(w http.ResponseWriter, r *http.Request) {
+func (c MailboxController) DeleteMailbox(w http.ResponseWriter, r *http.Request, authorizedUser *datastore.Mailbox) {
 	identifier := rid(r)
+	if authorizedUser.Id != identifier {
+		http.Error(w, "access denied", 403)
+		return
+	}
+
 	mailbox := datastore.Mailbox{Id: identifier}
 	if err := mailbox.Delete(); err != nil {
 		w.WriteHeader(404)
