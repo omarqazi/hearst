@@ -8,7 +8,6 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"io"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -102,7 +101,6 @@ func NewToken(p *rsa.PrivateKey) (string, error) {
 }
 
 func TokenValid(token string, maxDuration time.Duration, pub *rsa.PublicKey) bool {
-	log.Println(token, maxDuration)
 	comps := strings.Split(token, tokenDelimeter)
 	if len(comps) < 2 {
 		return false
@@ -128,8 +126,6 @@ func TokenValid(token string, maxDuration time.Duration, pub *rsa.PublicKey) boo
 	nowAfterExpiration := now.After(expirationTime)
 
 	if signedAtAfterNow || nowAfterExpiration {
-		log.Println("signed at after now = ", signedAtAfterNow)
-		log.Println("now after expiration = ", nowAfterExpiration)
 		return false
 	}
 

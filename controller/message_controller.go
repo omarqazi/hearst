@@ -11,6 +11,12 @@ type MessageController struct {
 }
 
 func (mc MessageController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_, err := authorizedMailbox(r)
+	if err != nil {
+		http.Error(w, "session token invalid", 403)
+		return
+	}
+
 	switch r.Method {
 	case "GET":
 		mc.GetMessage(rid(r), w, r)

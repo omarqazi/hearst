@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/omarqazi/hearst/auth"
 	"github.com/omarqazi/hearst/datastore"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 var mc = http.StripPrefix("/messages/", MessageController{})
@@ -19,8 +21,18 @@ func TestMessageGetRequest(t *testing.T) {
 		return
 	}
 
+	clientKey, err := auth.GeneratePrivateKey(2048)
+	if err != nil {
+		t.Fatal("Could not generate private key:", err)
+	}
+
+	pubKey, err := auth.StringForPublicKey(&clientKey.PublicKey)
+	if err != nil {
+		t.Fatal("Error generating public key string", err)
+	}
+
 	mailbox := datastore.Mailbox{
-		PublicKey: "some-public-key",
+		PublicKey: pubKey,
 		DeviceId:  "some-device-id",
 	}
 	if err := mailbox.Insert(); err != nil {
@@ -45,6 +57,23 @@ func TestMessageGetRequest(t *testing.T) {
 		t.Error("Error building GET request:", err)
 		return
 	}
+
+	req.Header.Add("X-Hearst-Mailbox", mailbox.Id)
+	token, err := auth.NewToken(serverSessionKey)
+	if err != nil {
+		t.Fatal("Error generating token", err)
+	}
+
+	session := auth.Session{
+		Token:    token,
+		Duration: 300 * time.Second,
+	}
+	sig, err := session.SignatureFor(clientKey)
+	if err != nil {
+		t.Fatal("Error signing session:", err)
+	}
+	session.Signature = sig
+	req.Header.Add("X-Hearst-Session", session.String())
 
 	w := httptest.NewRecorder()
 	mc.ServeHTTP(w, req)
@@ -85,8 +114,18 @@ func TestMessagePostRequest(t *testing.T) {
 		return
 	}
 
+	clientKey, err := auth.GeneratePrivateKey(2048)
+	if err != nil {
+		t.Fatal("Error generating private key:", err)
+	}
+
+	pubKey, err := auth.StringForPublicKey(&clientKey.PublicKey)
+	if err != nil {
+		t.Fatal("Error generating string for public key:", err)
+	}
+
 	mailbox := datastore.Mailbox{
-		PublicKey: "some-public-key",
+		PublicKey: pubKey,
 		DeviceId:  "some-device-id",
 	}
 	if err := mailbox.Insert(); err != nil {
@@ -115,6 +154,23 @@ func TestMessagePostRequest(t *testing.T) {
 		t.Error("Error building POST request:", err)
 		return
 	}
+
+	req.Header.Add("X-Hearst-Mailbox", mailbox.Id)
+	token, err := auth.NewToken(serverSessionKey)
+	if err != nil {
+		t.Fatal("Error generating token", err)
+	}
+
+	session := auth.Session{
+		Token:    token,
+		Duration: 300 * time.Second,
+	}
+	sig, err := session.SignatureFor(clientKey)
+	if err != nil {
+		t.Fatal("Error signing session:", err)
+	}
+	session.Signature = sig
+	req.Header.Add("X-Hearst-Session", session.String())
 
 	w := httptest.NewRecorder()
 	mc.ServeHTTP(w, req)
