@@ -4,6 +4,8 @@ package controller
 // for controllers in the server to use
 
 import (
+	"github.com/omarqazi/hearst/auth"
+	"github.com/omarqazi/hearst/datastore"
 	"net/http"
 	"strings"
 )
@@ -27,4 +29,30 @@ func urlSubcategory(r *http.Request) string {
 		return comps[1]
 	}
 	return ""
+}
+
+func authorizedMailbox(r *http.Request) (mb datastore.Mailbox, err error) {
+	mailboxId := r.Header.Get("X-Hearst-Mailbox")
+	if mailboxId == "" {
+		mailboxId = r.URL.Query().Get("mailbox")
+	}
+
+	sessionToken := r.Header.Get("X-Hearst-Session")
+	if sessionToken == "" {
+		sessionToken = r.URL.Query().Get("session")
+	}
+
+	mb, err = datastore.GetMailbox(mailboxId)
+	if err != nil {
+		return
+	}
+
+	pubKey, er := auth.PublicKeyFromString(mb.PublicKey)
+	if er != nil {
+		return mb, er
+	}
+
+	session := auth.ParseSession(sessionToken)
+	err = session.Valid(pubKey, &serverSessionKey.PublicKey)
+	return
 }

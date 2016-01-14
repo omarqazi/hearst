@@ -12,6 +12,13 @@ type MailboxController struct {
 }
 
 func (c MailboxController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "PUT" || r.Method == "DELETE" {
+		if _, err := authorizedMailbox(r); err != nil {
+			http.Error(w, "invalid session token", 403)
+			return
+		}
+	}
+
 	switch r.Method {
 	case "GET":
 		c.GetMailbox(rid(r), w, r)

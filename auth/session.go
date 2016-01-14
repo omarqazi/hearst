@@ -61,7 +61,12 @@ func (s Session) Valid(client *rsa.PublicKey, server *rsa.PublicKey) error {
 		return fmt.Errorf("client signature invalid") // the client did not sign off on this
 	}
 
-	if TokenValid(s.Token, s.Duration, server) == false {
+	maxDuration := s.Duration
+	if maxDuration > (24 * time.Hour) {
+		maxDuration = 24 * time.Hour
+	}
+
+	if TokenValid(s.Token, maxDuration, server) == false {
 		return fmt.Errorf("token has expired or is invalid")
 	}
 
