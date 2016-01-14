@@ -194,9 +194,19 @@ func TestMailboxPutRequest(t *testing.T) {
 }
 
 func TestMailboxDeleteRequest(t *testing.T) {
+	clientKey, err := auth.GeneratePrivateKey(2048)
+	if err != nil {
+		t.Fatal("Error generating private key", err)
+	}
+
+	pubKey, err := auth.StringForPublicKey(&clientKey.PublicKey)
+	if err != nil {
+		t.Fatal("Error generating string for public key", err)
+	}
+
 	mailbox := datastore.Mailbox{
 		DeviceId:  "short",
-		PublicKey: "lived",
+		PublicKey: pubKey,
 	}
 
 	if err := mailbox.Insert(); err != nil {
@@ -210,6 +220,26 @@ func TestMailboxDeleteRequest(t *testing.T) {
 		t.Error("Error building delete request", err)
 		return
 	}
+
+	req.Header.Add("X-Hearst-Mailbox", mailbox.Id)
+
+	token, err := auth.NewToken(serverSessionKey)
+	if err != nil {
+		t.Fatal("Error generating token", err)
+	}
+
+	session := auth.Session{
+		Token:    token,
+		Duration: 300 * time.Second,
+	}
+	sig, err := session.SignatureFor(clientKey)
+	if err != nil {
+		t.Fatal("Error signing session:", err)
+	}
+
+	session.Signature = sig
+
+	req.Header.Add("X-Hearst-Session", session.String())
 
 	w := httptest.NewRecorder()
 	mbc.ServeHTTP(w, req)
