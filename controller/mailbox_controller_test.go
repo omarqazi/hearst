@@ -171,7 +171,6 @@ func TestMailboxPutRequest(t *testing.T) {
 	}
 
 	session.Signature = sig
-
 	req.Header.Add("X-Hearst-Session", session.String())
 
 	w := httptest.NewRecorder()
@@ -189,6 +188,61 @@ func TestMailboxPutRequest(t *testing.T) {
 
 	if mbx.DeviceId != newDeviceId {
 		t.Error("Expected PUT request to update public key to", newDeviceId, "but found", mbx.DeviceId)
+		return
+	}
+
+	anotherClientKey, err := auth.GeneratePrivateKey(2048)
+	if err != nil {
+		t.Fatal("Error generating private key", err)
+	}
+
+	pubKey, err = auth.StringForPublicKey(&anotherClientKey.PublicKey)
+	if err != nil {
+		t.Fatal("Error generating string for public key", err)
+	}
+
+	anotherMailbox := datastore.Mailbox{
+		DeviceId:  "something",
+		PublicKey: pubKey,
+	}
+
+	if err := anotherMailbox.Insert(); err != nil {
+		t.Error("Error inserting mailbox", err)
+		return
+	}
+	defer anotherMailbox.Delete()
+
+	postBody = bytes.NewBuffer(mailboxBytes)
+	req, err = http.NewRequest("PUT", requestUrl, postBody)
+	if err != nil {
+		t.Error("Error building PUT request:", err)
+		return
+	}
+
+	req.Header.Add("X-Hearst-Mailbox", anotherMailbox.Id)
+
+	token, err = auth.NewToken(serverSessionKey)
+	if err != nil {
+		t.Fatal("Error generating token", err)
+	}
+
+	session = auth.Session{
+		Token:    token,
+		Duration: 300 * time.Second,
+	}
+	sig, err = session.SignatureFor(anotherClientKey)
+	if err != nil {
+		t.Fatal("Error signing session:", err)
+	}
+
+	session.Signature = sig
+	req.Header.Add("X-Hearst-Session", session.String())
+
+	w = httptest.NewRecorder()
+	mbc.ServeHTTP(w, req)
+
+	if w.Code != 403 {
+		t.Error("Expected 403 response when authorized as another user but got", w.Code)
 		return
 	}
 }
