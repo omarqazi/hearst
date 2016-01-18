@@ -40,6 +40,14 @@ func TestMessageGetRequest(t *testing.T) {
 		return
 	}
 
+	thread.AddMember(&datastore.ThreadMember{
+		ThreadId:          thread.Id,
+		MailboxId:         mailbox.Id,
+		AllowRead:         true,
+		AllowWrite:        false,
+		AllowNotification: false,
+	})
+
 	m := &datastore.Message{
 		ThreadId:        thread.Id,
 		SenderMailboxId: mailbox.Id,
@@ -133,6 +141,14 @@ func TestMessagePostRequest(t *testing.T) {
 		return
 	}
 
+	thread.AddMember(&datastore.ThreadMember{
+		ThreadId:          thread.Id,
+		MailboxId:         mailbox.Id,
+		AllowRead:         true,
+		AllowWrite:        true,
+		AllowNotification: false,
+	})
+
 	messageBody := "yo yo yo"
 	m := &datastore.Message{
 		ThreadId:        thread.Id,
@@ -176,7 +192,7 @@ func TestMessagePostRequest(t *testing.T) {
 	mc.ServeHTTP(w, req)
 
 	if w.Code > 299 || w.Code < 200 {
-		t.Error("Expected 200 response code but got", w.Code)
+		t.Error("Expected 200 response code but got", w.Code, w.Body.String())
 		return
 	}
 
