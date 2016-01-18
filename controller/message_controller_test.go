@@ -217,3 +217,115 @@ func TestMessagePostRequest(t *testing.T) {
 	thread.Delete()
 	mailbox.Delete()
 }
+
+func TestPermissions(t *testing.T) {
+	clientKey, err := auth.GeneratePrivateKey(2048)
+	if err != nil {
+		t.Fatal("Error generating private key:", err)
+	}
+
+	pubKey, err := auth.StringForPublicKey(&clientKey.PublicKey)
+	if err != nil {
+		t.Fatal("Error generating string for public key:", err)
+	}
+
+	mailbox := datastore.Mailbox{
+		PublicKey: pubKey,
+		DeviceId:  "some-device-id",
+	}
+	if err := mailbox.Insert(); err != nil {
+		t.Error("Error inserting mailbox for test message GET request:", err)
+		return
+	}
+
+	thread := datastore.Thread{Subject: "test message permissions"}
+	if err := thread.Insert(); err != nil {
+		t.Error("Error inserting thread for test message permissions request:", err)
+		return
+	}
+
+	tm := &datastore.ThreadMember{
+		ThreadId:          thread.Id,
+		MailboxId:         mailbox.Id,
+		AllowRead:         false,
+		AllowWrite:        false,
+		AllowNotification: false,
+	}
+
+	thread.AddMember(tm)
+
+	m := &datastore.Message{
+		ThreadId:        thread.Id,
+		SenderMailboxId: mailbox.Id,
+	}
+	m.Payload.Scan("{}")
+	m.Labels.Scan("{}")
+	if err := m.Insert(); err != nil {
+		t.Error("Error inserting message:", err)
+		return
+	}
+
+	testRequestUrl := fmt.Sprintf("http://localhost:8080/messages/%s", thread.Id)
+	req, err := http.NewRequest("GET", testRequestUrl, nil)
+	if err != nil {
+		t.Error("Error building GET request:", err)
+		return
+	}
+
+	req.Header.Add("X-Hearst-Mailbox", mailbox.Id)
+	token, err := auth.NewToken(serverSessionKey)
+	if err != nil {
+		t.Fatal("Error generating token", err)
+	}
+
+	session := auth.Session{
+		Token:    token,
+		Duration: 300 * time.Second,
+	}
+	sig, err := session.SignatureFor(clientKey)
+	if err != nil {
+		t.Fatal("Error signing session:", err)
+	}
+	session.Signature = sig
+	req.Header.Add("X-Hearst-Session", session.String())
+
+	w := httptest.NewRecorder()
+	mc.ServeHTTP(w, req)
+	if w.Code != 403 {
+		t.Fatal("Expected server to deny access to reading message but got", w.Code)
+	}
+
+	tm.AllowRead = true
+	if err := tm.UpdatePermissions(); err != nil {
+		t.Fatal("Error updating permissions:", err)
+	}
+
+	req, err = http.NewRequest("GET", testRequestUrl, nil)
+	if err != nil {
+		t.Error("Error building GET request:", err)
+		return
+	}
+
+	req.Header.Add("X-Hearst-Mailbox", mailbox.Id)
+	token, err = auth.NewToken(serverSessionKey)
+	if err != nil {
+		t.Fatal("Error generating token", err)
+	}
+
+	session = auth.Session{
+		Token:    token,
+		Duration: 300 * time.Second,
+	}
+	sig, err = session.SignatureFor(clientKey)
+	if err != nil {
+		t.Fatal("Error signing session:", err)
+	}
+	session.Signature = sig
+	req.Header.Add("X-Hearst-Session", session.String())
+
+	w = httptest.NewRecorder()
+	mc.ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Fatal("Expected to be able to read message after updating permissions but got", w.Code)
+	}
+}
