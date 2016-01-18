@@ -328,4 +328,86 @@ func TestPermissions(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatal("Expected to be able to read message after updating permissions but got", w.Code)
 	}
+
+	messageBody := "yo yo yo"
+	m = &datastore.Message{
+		ThreadId:        thread.Id,
+		SenderMailboxId: mailbox.Id,
+		Body:            messageBody,
+	}
+	m.Payload.Scan("{}")
+	m.Labels.Scan("{}")
+	messageBytes, err := json.Marshal(m)
+	if err != nil {
+		t.Error("Error marshaling message for message post request:", err)
+		return
+	}
+
+	postBody := bytes.NewBuffer(messageBytes)
+	req, err = http.NewRequest("POST", testRequestUrl, postBody)
+	if err != nil {
+		t.Error("Error building POST request:", err)
+		return
+	}
+
+	req.Header.Add("X-Hearst-Mailbox", mailbox.Id)
+	token, err = auth.NewToken(serverSessionKey)
+	if err != nil {
+		t.Fatal("Error generating token", err)
+	}
+
+	session = auth.Session{
+		Token:    token,
+		Duration: 300 * time.Second,
+	}
+	sig, err = session.SignatureFor(clientKey)
+	if err != nil {
+		t.Fatal("Error signing session:", err)
+	}
+	session.Signature = sig
+	req.Header.Add("X-Hearst-Session", session.String())
+
+	w = httptest.NewRecorder()
+	mc.ServeHTTP(w, req)
+
+	if w.Code != 403 {
+		t.Fatal("Expected controller to deny access to message write but got", w.Code)
+	}
+
+	tm.AllowWrite = true
+	if err := tm.UpdatePermissions(); err != nil {
+		t.Fatal("Error updating permissions:", err)
+	}
+
+	postBody = bytes.NewBuffer(messageBytes)
+	req, err = http.NewRequest("POST", testRequestUrl, postBody)
+	if err != nil {
+		t.Error("Error building POST request:", err)
+		return
+	}
+
+	req.Header.Add("X-Hearst-Mailbox", mailbox.Id)
+	token, err = auth.NewToken(serverSessionKey)
+	if err != nil {
+		t.Fatal("Error generating token", err)
+	}
+
+	session = auth.Session{
+		Token:    token,
+		Duration: 300 * time.Second,
+	}
+	sig, err = session.SignatureFor(clientKey)
+	if err != nil {
+		t.Fatal("Error signing session:", err)
+	}
+	session.Signature = sig
+	req.Header.Add("X-Hearst-Session", session.String())
+
+	w = httptest.NewRecorder()
+	mc.ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatal("Expected controller to allow access to message write but got", w.Code)
+	}
+
 }
