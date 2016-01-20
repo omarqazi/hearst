@@ -66,11 +66,11 @@ func (wsc WebSocketController) ProcessCommands(conn *websocket.Conn, broadcast c
 		if request["model"] == "mailbox" { // If mailbox
 			wsc.HandleMailbox(request, conn, broadcast, mb)
 		} else if request["model"] == "thread" {
-			wsc.HandleThread(request, conn, broadcast)
+			wsc.HandleThread(request, conn, broadcast, mb)
 		} else if request["model"] == "message" {
-			wsc.HandleMessage(request, conn, broadcast)
+			wsc.HandleMessage(request, conn, broadcast, mb)
 		} else if request["model"] == "threadmember" {
-			wsc.HandleThreadMember(request, conn, broadcast)
+			wsc.HandleThreadMember(request, conn, broadcast, mb)
 		} else { // if request type unknown
 			wsc.UnknownRequest(request, conn, broadcast)
 		}
@@ -107,63 +107,134 @@ func (wsc WebSocketController) HandleMailbox(request map[string]string, conn *we
 	}
 }
 
-func (wsc WebSocketController) HandleThread(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
+func (wsc WebSocketController) HandleThread(request map[string]string, conn *websocket.Conn, broadcast chan interface{}, mb *datastore.Mailbox) {
 	var thread datastore.Thread
 
-	if _, ok := request["uuid"]; ok { // Get by UUID
+	if uuid, ok := request["uuid"]; ok { // Get by UUID
+		thread, err := datastore.GetThread(uuid)
+		if err != nil {
+			wsc.ErrorResponse("Error fetching thread", conn, broadcast)
+			return
+		}
+
+		member, err := thread.GetMember(mb.Id)
+		if err != nil || !member.AllowRead {
+			wsc.ErrorResponse("access denied", conn, broadcast)
+			return
+		}
+
 		go wsc.GetThread(request, conn, broadcast)
 	} else if action, ok := request["action"]; ok && action == "insert" {
 		if err := conn.ReadJSON(&thread); err != nil {
 			return
 		}
-		go wsc.InsertThread(request, conn, broadcast, thread)
+		go wsc.InsertThread(request, conn, broadcast, thread, mb)
 	} else if action == "update" {
 		if err := conn.ReadJSON(&thread); err != nil {
 			return
 		}
+
+		member, err := thread.GetMember(mb.Id)
+		if err != nil || !member.AllowWrite {
+			wsc.ErrorResponse("access denied", conn, broadcast)
+			return
+		}
+
 		go wsc.UpdateThread(request, conn, broadcast, thread)
 	} else if action == "delete" {
+		if uuid, ok := request["delete_thread"]; ok {
+			thread := datastore.Thread{Id: uuid}
+			member, err := thread.GetMember(mb.Id)
+			if err != nil || !member.AllowWrite {
+				wsc.ErrorResponse("cannot delete thread", conn, broadcast)
+			}
+			return
+		}
 		wsc.DeleteThread(request, conn, broadcast)
 	} else if action == "list" {
-		go wsc.ListThread(request, conn, broadcast)
+		go wsc.ListThread(request, conn, broadcast, mb)
 	} else {
 		wsc.ErrorResponse("invalid thread request", conn, broadcast)
 	}
 }
 
-func (wsc WebSocketController) HandleMessage(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
+func (wsc WebSocketController) HandleMessage(request map[string]string, conn *websocket.Conn, broadcast chan interface{}, mb *datastore.Mailbox) {
 	var message datastore.Message
 	if _, ok := request["uuid"]; ok {
-		go wsc.GetMessage(request, conn, broadcast)
+		go wsc.GetMessage(request, conn, broadcast, mb)
 	} else if action, ok := request["action"]; ok && action == "insert" {
 		if err := conn.ReadJSON(&message); err != nil {
 			return
 		}
+
+		thread, err := datastore.GetThread(message.ThreadId)
+		if err != nil {
+			wsc.ErrorResponse("thread not found", conn, broadcast)
+			return
+		}
+
+		member, err := thread.GetMember(mb.Id)
+		if err != nil || !member.AllowWrite {
+			wsc.ErrorResponse("access denied", conn, broadcast)
+			return
+		}
+
 		go wsc.InsertMessage(request, conn, broadcast, message)
 	}
 }
 
-func (wsc WebSocketController) HandleThreadMember(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
-	_, threadOk := request["thread_id"]
+func (wsc WebSocketController) HandleThreadMember(request map[string]string, conn *websocket.Conn, broadcast chan interface{}, mb *datastore.Mailbox) {
+	threadId, threadOk := request["thread_id"]
 	_, mailboxOk := request["mailbox_id"]
 	action, ok := request["action"]
 	var member datastore.ThreadMember
 
+	thread, err := datastore.GetThread(threadId)
+	if err != nil {
+		wsc.ErrorResponse("thread not found", conn, broadcast)
+		return
+	}
+
+	tmember, err := thread.GetMember(mb.Id)
+	if err != nil {
+		wsc.ErrorResponse("not member of thread", conn, broadcast)
+		return
+	}
+
 	if threadOk && mailboxOk && ok {
 		switch action {
 		case "get":
+			if !tmember.AllowRead {
+				wsc.ErrorResponse("access denied", conn, broadcast)
+				return
+			}
 			go wsc.GetThreadMember(request, conn, broadcast)
 		case "insert":
 			if err := conn.ReadJSON(&member); err != nil {
 				return
 			}
+			if !tmember.AllowWrite {
+				wsc.ErrorResponse("access denied", conn, broadcast)
+				return
+			}
+
 			go wsc.InsertThreadMember(request, conn, broadcast, member)
 		case "update":
 			if err := conn.ReadJSON(&member); err != nil {
 				return
 			}
+			if !tmember.AllowWrite {
+				wsc.ErrorResponse("access denied", conn, broadcast)
+				return
+			}
+
 			go wsc.UpdateThreadMember(request, conn, broadcast, member)
 		case "delete":
+			if !tmember.AllowWrite {
+				wsc.ErrorResponse("access denied", conn, broadcast)
+				return
+			}
+
 			go wsc.DeleteThreadMember(request, conn, broadcast)
 		default:
 			wsc.ErrorResponse("invalid action", conn, broadcast)
@@ -173,7 +244,7 @@ func (wsc WebSocketController) HandleThreadMember(request map[string]string, con
 	}
 }
 
-func (wsc WebSocketController) ListThread(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
+func (wsc WebSocketController) ListThread(request map[string]string, conn *websocket.Conn, broadcast chan interface{}, mb *datastore.Mailbox) {
 	threadId, ok := request["thread_id"]
 	if !ok {
 		wsc.ErrorResponse("thread id required", conn, broadcast)
@@ -183,6 +254,12 @@ func (wsc WebSocketController) ListThread(request map[string]string, conn *webso
 	thread, err := datastore.GetThread(threadId)
 	if err != nil {
 		wsc.ErrorResponse("thread not found", conn, broadcast)
+		return
+	}
+
+	member, err := thread.GetMember(mb.Id)
+	if err != nil || !member.AllowRead {
+		wsc.ErrorResponse("access denied", conn, broadcast)
 		return
 	}
 
@@ -207,7 +284,7 @@ func (wsc WebSocketController) ListThread(request map[string]string, conn *webso
 
 	wo(broadcast, messages)
 
-	if shouldFollow {
+	if shouldFollow && member.AllowNotification {
 		for evt := range changeEvents {
 			if ok := wo(broadcast, []datastore.Event{evt}); !ok {
 				return
@@ -238,12 +315,25 @@ func (wsc WebSocketController) GetThread(request map[string]string, conn *websoc
 	return
 }
 
-func (wsc WebSocketController) GetMessage(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
+func (wsc WebSocketController) GetMessage(request map[string]string, conn *websocket.Conn, broadcast chan interface{}, mb *datastore.Mailbox) {
 	message, err := datastore.GetMessage(request["uuid"])
 	if err != nil {
 		wsc.ErrorResponse("not found", conn, broadcast)
 		return
 	}
+
+	thread, err := datastore.GetThread(message.ThreadId)
+	if err != nil {
+		wsc.ErrorResponse("thread not found", conn, broadcast)
+		return
+	}
+
+	member, err := thread.GetMember(mb.Id)
+	if err != nil || !member.AllowRead {
+		wsc.ErrorResponse("access denied", conn, broadcast)
+		return
+	}
+
 	wo(broadcast, message)
 	return
 }
@@ -279,8 +369,20 @@ func (wsc WebSocketController) InsertMailbox(request map[string]string, conn *we
 	return
 }
 
-func (wsc WebSocketController) InsertThread(request map[string]string, conn *websocket.Conn, broadcast chan interface{}, thread datastore.Thread) {
+func (wsc WebSocketController) InsertThread(request map[string]string, conn *websocket.Conn, broadcast chan interface{}, thread datastore.Thread, mb *datastore.Mailbox) {
 	if err := thread.Insert(); err != nil {
+		wsc.ErrorResponse(err.Error(), conn, broadcast)
+		return
+	}
+
+	member := &datastore.ThreadMember{
+		ThreadId:          thread.Id,
+		MailboxId:         mb.Id,
+		AllowRead:         true,
+		AllowWrite:        true,
+		AllowNotification: true,
+	}
+	if err := thread.AddMember(member); err != nil {
 		wsc.ErrorResponse(err.Error(), conn, broadcast)
 		return
 	}
