@@ -64,7 +64,7 @@ func (wsc WebSocketController) ProcessCommands(conn *websocket.Conn, broadcast c
 		}
 
 		if request["model"] == "mailbox" { // If mailbox
-			wsc.HandleMailbox(request, conn, broadcast)
+			wsc.HandleMailbox(request, conn, broadcast, mb)
 		} else if request["model"] == "thread" {
 			wsc.HandleThread(request, conn, broadcast)
 		} else if request["model"] == "message" {
@@ -77,7 +77,7 @@ func (wsc WebSocketController) ProcessCommands(conn *websocket.Conn, broadcast c
 	}
 }
 
-func (wsc WebSocketController) HandleMailbox(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
+func (wsc WebSocketController) HandleMailbox(request map[string]string, conn *websocket.Conn, broadcast chan interface{}, mb *datastore.Mailbox) {
 	var mailbox datastore.Mailbox
 
 	if _, ok := request["uuid"]; ok { // Get by UUID
@@ -91,8 +91,16 @@ func (wsc WebSocketController) HandleMailbox(request map[string]string, conn *we
 		if err := conn.ReadJSON(&mailbox); err != nil {
 			return
 		}
+		if mailbox.Id != mb.Id {
+			wsc.ErrorResponse("cannot update other users mailbox", conn, broadcast)
+			return
+		}
 		go wsc.UpdateMailbox(request, conn, broadcast, mailbox)
 	} else if action == "delete" {
+		if uuid, ok := request["delete_mailbox"]; !ok || uuid != mb.Id {
+			wsc.ErrorResponse("cannot delete other users mailbox", conn, broadcast)
+			return
+		}
 		go wsc.DeleteMailbox(request, conn, broadcast)
 	} else { // if not enough information
 		wsc.ErrorResponse("invalid mailbox request", conn, broadcast)
