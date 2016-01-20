@@ -18,6 +18,12 @@ type WebSocketController struct {
 }
 
 func (wsc WebSocketController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	mb, err := authorizedMailbox(r)
+	if err != nil {
+		http.Error(w, "session token invalid", 403)
+		return
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		http.Error(w, "error upgrading connection to WebSocket", 500)
@@ -26,7 +32,7 @@ func (wsc WebSocketController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	defer conn.Close()
 
 	broadcastChannel := make(chan interface{}, 10)
-	go wsc.ProcessCommands(conn, broadcastChannel)
+	go wsc.ProcessCommands(conn, broadcastChannel, &mb)
 	conn.SetPongHandler(func(appData string) error {
 		return nil
 	})
@@ -48,7 +54,7 @@ func (wsc WebSocketController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (wsc WebSocketController) ProcessCommands(conn *websocket.Conn, broadcast chan interface{}) {
+func (wsc WebSocketController) ProcessCommands(conn *websocket.Conn, broadcast chan interface{}, mb *datastore.Mailbox) {
 	defer conn.Close()
 
 	for {
