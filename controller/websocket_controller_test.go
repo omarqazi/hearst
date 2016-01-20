@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"github.com/omarqazi/hearst/datastore"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,11 +10,16 @@ import (
 var wsc = http.StripPrefix("/socket/", WebSocketController{})
 
 func TestWebSocket(t *testing.T) {
-	req, err := http.NewRequest("GET", "http://localhost:8080/socket/", nil)
+	mailbox, clientKey, err := datastore.NewMailboxWithKey()
 	if err != nil {
-		t.Error("Error building GET request:", err)
-		return
+		t.Fatal("Error generating private key:", err)
 	}
+
+	if err := mailbox.Insert(); err != nil {
+		t.Fatal("Error inserting mailbox:", err)
+	}
+
+	req := testRequest("GET", "http://localhost:8080/socket/", nil, t, clientKey, &mailbox)
 
 	w := httptest.NewRecorder()
 	wsc.ServeHTTP(w, req)

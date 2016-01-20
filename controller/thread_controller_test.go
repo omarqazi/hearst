@@ -453,7 +453,7 @@ func TestThreadMembersPostRequest(t *testing.T) {
 	}
 
 	am := allMembers[1]
-	if am.AllowWrite {
+	if am.AllowWrite && allMembers[0].AllowWrite {
 		t.Error("Expected AllowWrite to be false but found true")
 		return
 	}
