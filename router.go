@@ -13,6 +13,7 @@ var routes = map[string]http.Handler{
 	"/thread/":   controller.ThreadController{},
 	"/messages/": controller.MessageController{},
 	"/socket/":   controller.WebSocketController{},
+	"/auth/":     controller.AuthController{},
 }
 
 func init() {

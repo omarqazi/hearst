@@ -11,48 +11,60 @@ type ThreadController struct {
 }
 
 func (tc ThreadController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	mb, err := authorizedMailbox(r)
+	if err != nil {
+		http.Error(w, "session token invalid", 403)
+		return
+	}
+
 	if subcat := urlSubcategory(r); subcat == "members" {
-		tc.RouteThreadMembersRequest(w, r)
+		tc.RouteThreadMembersRequest(w, r, &mb)
 	} else {
-		tc.RouteThreadRequest(w, r)
+		tc.RouteThreadRequest(w, r, &mb)
 	}
 }
 
-func (tc ThreadController) RouteThreadRequest(w http.ResponseWriter, r *http.Request) {
+func (tc ThreadController) RouteThreadRequest(w http.ResponseWriter, r *http.Request, mb *datastore.Mailbox) {
 	switch r.Method {
 	case "GET":
-		tc.GetThread(rid(r), w, r)
+		tc.GetThread(rid(r), w, r, mb)
 	case "POST":
-		tc.PostThread(w, r)
+		tc.PostThread(w, r, mb)
 	case "PUT":
-		tc.PutThread(w, r)
+		tc.PutThread(w, r, mb)
 	case "DELETE":
-		tc.DeleteThread(w, r)
+		tc.DeleteThread(w, r, mb)
 	default:
 		tc.HandleUnknown(w, r)
 	}
 }
 
-func (tc ThreadController) RouteThreadMembersRequest(w http.ResponseWriter, r *http.Request) {
+func (tc ThreadController) RouteThreadMembersRequest(w http.ResponseWriter, r *http.Request, mb *datastore.Mailbox) {
 	switch r.Method {
 	case "GET":
-		tc.GetThreadMembers(rid(r), w, r)
+		tc.GetThreadMembers(rid(r), w, r, mb)
 	case "POST":
-		tc.PostThreadMember(w, r)
+		tc.PostThreadMember(w, r, mb)
 	case "PUT":
-		tc.PutThreadMember(w, r)
+		tc.PutThreadMember(w, r, mb)
 	case "DELETE":
-		tc.DeleteThreadMember(w, r)
+		tc.DeleteThreadMember(w, r, mb)
 	default:
 		tc.HandleUnknown(w, r)
 	}
 }
 
-func (tc ThreadController) GetThread(tid string, w http.ResponseWriter, r *http.Request) {
+func (tc ThreadController) GetThread(tid string, w http.ResponseWriter, r *http.Request, mb *datastore.Mailbox) {
 	thread, err := datastore.GetThread(tid)
 	if err != nil {
 		w.WriteHeader(404)
 		fmt.Fprintln(w, "thread not found")
+		return
+	}
+
+	member, err := thread.GetMember(mb.Id)
+	if err != nil || !member.AllowRead {
+		http.Error(w, "access denied", 403)
 		return
 	}
 
@@ -65,7 +77,7 @@ func (tc ThreadController) GetThread(tid string, w http.ResponseWriter, r *http.
 	}
 }
 
-func (tc ThreadController) PostThread(w http.ResponseWriter, r *http.Request) {
+func (tc ThreadController) PostThread(w http.ResponseWriter, r *http.Request, mb *datastore.Mailbox) {
 	var thread datastore.Thread
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&thread); err != nil {
@@ -80,10 +92,23 @@ func (tc ThreadController) PostThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tc.GetThread(thread.Id, w, r)
+	adminMember := &datastore.ThreadMember{
+		ThreadId:          thread.Id,
+		MailboxId:         mb.Id,
+		AllowRead:         true,
+		AllowWrite:        true,
+		AllowNotification: true,
+	}
+
+	if err := thread.AddMember(adminMember); err != nil {
+		http.Error(w, "error adding thread member", 500)
+		return
+	}
+
+	tc.GetThread(thread.Id, w, r, mb)
 }
 
-func (tc ThreadController) PutThread(w http.ResponseWriter, r *http.Request) {
+func (tc ThreadController) PutThread(w http.ResponseWriter, r *http.Request, mb *datastore.Mailbox) {
 	var thread datastore.Thread
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&thread); err != nil {
@@ -103,6 +128,12 @@ func (tc ThreadController) PutThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	member, err := dbThread.GetMember(mb.Id)
+	if err != nil || !member.AllowWrite {
+		http.Error(w, "access denied: not thread member", 403)
+		return
+	}
+
 	if thread.Subject == "" {
 		thread.Subject = dbThread.Subject
 	}
@@ -113,21 +144,27 @@ func (tc ThreadController) PutThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tc.GetThread(thread.Id, w, r)
+	tc.GetThread(thread.Id, w, r, mb)
 }
 
-func (tc ThreadController) DeleteThread(w http.ResponseWriter, r *http.Request) {
+func (tc ThreadController) DeleteThread(w http.ResponseWriter, r *http.Request, mb *datastore.Mailbox) {
 	thread := datastore.Thread{Id: rid(r)}
+
+	member, err := thread.GetMember(mb.Id)
+	if err != nil || !member.AllowWrite {
+		http.Error(w, "access denied: not thread member", 403)
+	}
+
 	if err := thread.Delete(); err != nil {
 		w.WriteHeader(404)
-		fmt.Fprintln(w, "thread not found")
+		fmt.Fprintln(w, "thread not found", 403)
 		return
 	}
 
 	fmt.Fprintln(w, "thread deleted")
 }
 
-func (tc ThreadController) GetThreadMembers(tid string, w http.ResponseWriter, r *http.Request) {
+func (tc ThreadController) GetThreadMembers(tid string, w http.ResponseWriter, r *http.Request, mb *datastore.Mailbox) {
 	thread, err := datastore.GetThread(tid)
 	if err != nil {
 		http.Error(w, "thread not found", 404)
@@ -155,10 +192,16 @@ func (tc ThreadController) GetThreadMembers(tid string, w http.ResponseWriter, r
 	}
 }
 
-func (tc ThreadController) PostThreadMember(w http.ResponseWriter, r *http.Request) {
+func (tc ThreadController) PostThreadMember(w http.ResponseWriter, r *http.Request, mb *datastore.Mailbox) {
 	thread, err := datastore.GetThread(rid(r))
 	if err != nil {
 		http.Error(w, "thread not found", 404)
+		return
+	}
+
+	tmember, err := thread.GetMember(mb.Id)
+	if err != nil || !tmember.AllowWrite {
+		http.Error(w, "access denied", 403)
 		return
 	}
 
@@ -181,10 +224,10 @@ func (tc ThreadController) PostThreadMember(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	tc.GetThreadMembers(thread.Id, w, r)
+	tc.GetThreadMembers(thread.Id, w, r, mb)
 }
 
-func (tc ThreadController) PutThreadMember(w http.ResponseWriter, r *http.Request) {
+func (tc ThreadController) PutThreadMember(w http.ResponseWriter, r *http.Request, mb *datastore.Mailbox) {
 	comps := pathComponents(r)
 	if len(comps) < 3 {
 		http.Error(w, "invalid mailbox id for thread member", 400)
@@ -195,6 +238,12 @@ func (tc ThreadController) PutThreadMember(w http.ResponseWriter, r *http.Reques
 	thread, err := datastore.GetThread(rid(r))
 	if err != nil {
 		http.Error(w, "thread not found", 404)
+		return
+	}
+
+	tmember, err := thread.GetMember(mb.Id)
+	if err != nil || !tmember.AllowWrite {
+		http.Error(w, "access denied", 403)
 		return
 	}
 
@@ -220,10 +269,10 @@ func (tc ThreadController) PutThreadMember(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	tc.GetThreadMembers(thread.Id, w, r)
+	tc.GetThreadMembers(thread.Id, w, r, mb)
 }
 
-func (tc ThreadController) DeleteThreadMember(w http.ResponseWriter, r *http.Request) {
+func (tc ThreadController) DeleteThreadMember(w http.ResponseWriter, r *http.Request, mb *datastore.Mailbox) {
 	comps := pathComponents(r)
 	if len(comps) < 3 {
 		http.Error(w, "invalid mailbox id for thread member", 400)
@@ -235,6 +284,11 @@ func (tc ThreadController) DeleteThreadMember(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		http.Error(w, "thread not found", 404)
 		return
+	}
+
+	tmember, err := thread.GetMember(mb.Id)
+	if err != nil || !tmember.AllowWrite {
+		http.Error(w, "access denied", 403)
 	}
 
 	member, err := thread.GetMember(mailboxId)

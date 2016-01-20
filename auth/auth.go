@@ -86,7 +86,7 @@ func ValidateSignatureForHash(hashSum []byte, sig []byte, pub *rsa.PublicKey) (e
 	return
 }
 
-const tokenDelimeter = "--"
+const tokenDelimeter = "-*-*"
 
 func NewToken(p *rsa.PrivateKey) (string, error) {
 	unixTime := time.Now().Unix()
@@ -122,7 +122,10 @@ func TokenValid(token string, maxDuration time.Duration, pub *rsa.PublicKey) boo
 	now := time.Now()
 	expirationTime := signedAt.Add(maxDuration)
 
-	if signedAt.After(now) || now.After(expirationTime) {
+	signedAtAfterNow := signedAt.After(now)
+	nowAfterExpiration := now.After(expirationTime)
+
+	if signedAtAfterNow || nowAfterExpiration {
 		return false
 	}
 
