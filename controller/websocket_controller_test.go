@@ -9,7 +9,7 @@ import (
 
 var wsc = http.StripPrefix("/socket/", WebSocketController{})
 
-func TestWebSocket(t *testing.T) {
+func TestNormalHTTP(t *testing.T) {
 	mailbox, clientKey, err := datastore.NewMailboxWithKey()
 	if err != nil {
 		t.Fatal("Error generating private key:", err)
