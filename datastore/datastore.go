@@ -1,9 +1,9 @@
 package datastore
 
 import (
-	"code.google.com/p/go-uuid/uuid"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"github.com/pborman/uuid"
 	"gopkg.in/redis.v3"
 	"log"
 	"os"

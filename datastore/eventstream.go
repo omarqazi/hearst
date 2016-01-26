@@ -26,7 +26,7 @@ type Event struct {
 	ModelClass string         // what kind of object is it?
 	Action     string         // either insert, update, or delete
 	ObjectId   string         // the id of the object being modified
-	Payload    types.JsonText // JSON data for object
+	Payload    types.JSONText // JSON data for object
 }
 
 func ParseEventId(eventId string, payload string) (ev Event) {

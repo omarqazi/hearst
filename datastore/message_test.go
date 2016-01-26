@@ -30,8 +30,8 @@ func TestInsertMessage(t *testing.T) {
 		SenderMailboxId: mb.Id,
 		Topic:           testMessageTopic,
 		Body:            testMessageBody,
-		Labels:          types.JsonText("{}"),
-		Payload:         types.JsonText("{}"),
+		Labels:          types.JSONText("{}"),
+		Payload:         types.JSONText("{}"),
 	}
 
 	m.Labels.Scan("{}")

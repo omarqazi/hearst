@@ -77,11 +77,16 @@ func ValidateSignatureForMessage(msg string, sig []byte, pub *rsa.PublicKey) (er
 	io.WriteString(hashFunction, msg)
 	hashSum := hashFunction.Sum(nil)
 
+	err = ValidateSignatureForHash(hashSum, sig, pub)
+	return
+}
+
+func ValidateSignatureForHash(hashSum []byte, sig []byte, pub *rsa.PublicKey) (err error) {
 	err = rsa.VerifyPSS(pub, crypto.SHA256, hashSum, sig, nil)
 	return
 }
 
-const tokenDelimeter = "--"
+const tokenDelimeter = "-*-*"
 
 func NewToken(p *rsa.PrivateKey) (string, error) {
 	unixTime := time.Now().Unix()
@@ -117,7 +122,10 @@ func TokenValid(token string, maxDuration time.Duration, pub *rsa.PublicKey) boo
 	now := time.Now()
 	expirationTime := signedAt.Add(maxDuration)
 
-	if signedAt.After(now) || now.After(expirationTime) {
+	signedAtAfterNow := signedAt.After(now)
+	nowAfterExpiration := now.After(expirationTime)
+
+	if signedAtAfterNow || nowAfterExpiration {
 		return false
 	}
 

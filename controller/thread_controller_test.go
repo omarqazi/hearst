@@ -13,6 +13,15 @@ import (
 var tc = http.StripPrefix("/thread/", ThreadController{})
 
 func TestThreadGetRequest(t *testing.T) {
+	mailbox, clientKey, err := datastore.NewMailboxWithKey()
+	if err != nil {
+		t.Fatal("Error generating mailbox with key:", err, mailbox, clientKey)
+	}
+
+	if err := mailbox.Insert(); err != nil {
+		t.Fatal("Error inserting mailbox:", err)
+	}
+
 	thread := datastore.Thread{
 		Subject: "whats up man",
 	}
@@ -21,12 +30,19 @@ func TestThreadGetRequest(t *testing.T) {
 		return
 	}
 
-	testRequestUrl := fmt.Sprintf("http://localhost:8080/thread/%s", thread.Id)
-	req, err := http.NewRequest("GET", testRequestUrl, nil)
+	err = thread.AddMember(&datastore.ThreadMember{
+		MailboxId:         mailbox.Id,
+		ThreadId:          thread.Id,
+		AllowRead:         true,
+		AllowWrite:        false,
+		AllowNotification: false,
+	})
 	if err != nil {
-		t.Error("Error building GET request:", err)
-		return
+		t.Fatal("Error adding thread member:", err)
 	}
+
+	testRequestUrl := fmt.Sprintf("http://localhost:8080/thread/%s", thread.Id)
+	req := testRequest("GET", testRequestUrl, nil, t, clientKey, &mailbox)
 
 	w := httptest.NewRecorder()
 	tc.ServeHTTP(w, req)
@@ -47,10 +63,18 @@ func TestThreadGetRequest(t *testing.T) {
 }
 
 func TestThreadPostRequest(t *testing.T) {
+	mailbox, clientKey, err := datastore.NewMailboxWithKey()
+	if err != nil {
+		t.Fatal("Error generating mailbox with key:", err)
+	}
+
+	if err = mailbox.Insert(); err != nil {
+		t.Fatal("Error inserting mailbox:", err)
+	}
+
 	thread := datastore.Thread{
 		Subject: "I posted this from the API",
 	}
-
 	threadBytes, err := json.Marshal(thread)
 	if err != nil {
 		t.Error("Error marshaling post body JSON for thread:", err)
@@ -58,7 +82,7 @@ func TestThreadPostRequest(t *testing.T) {
 	}
 
 	postBody := bytes.NewBuffer(threadBytes)
-	req, err := http.NewRequest("POST", "http://localhost:8080/thread/", postBody)
+	req := testRequest("POST", "http://localhost:8080/thread/", postBody, t, clientKey, &mailbox)
 	if err != nil {
 		t.Error("Error building POST request:", err)
 		return
@@ -100,6 +124,19 @@ func TestThreadPostRequest(t *testing.T) {
 		return
 	}
 
+	members, err := trx.GetAllMembers()
+	if err != nil {
+		t.Fatal("Error getting members for posted thread:", err)
+	}
+
+	if len(members) != 1 {
+		t.Fatal("Expected 1 member for posted thread but found", len(members))
+	}
+
+	if members[0].MailboxId != mailbox.Id {
+		t.Fatal("Expected posted thread to have admin member", mailbox.Id, "but found", members[0].MailboxId)
+	}
+
 	if err := trx.Delete(); err != nil {
 		t.Error("Error deleting thread:", err)
 		return
@@ -107,6 +144,15 @@ func TestThreadPostRequest(t *testing.T) {
 }
 
 func TestThreadPutRequest(t *testing.T) {
+	mailbox, clientKey, err := datastore.NewMailboxWithKey()
+	if err != nil {
+		t.Fatal("Error generating private key:", err)
+	}
+
+	if err := mailbox.Insert(); err != nil {
+		t.Fatal("error inserting mailbox:", err)
+	}
+
 	thread := datastore.Thread{
 		Subject: "this will be updated later",
 	}
@@ -114,6 +160,14 @@ func TestThreadPutRequest(t *testing.T) {
 		t.Error("Error inserting thread for put request:", err)
 		return
 	}
+
+	thread.AddMember(&datastore.ThreadMember{
+		MailboxId:         mailbox.Id,
+		ThreadId:          thread.Id,
+		AllowRead:         true,
+		AllowWrite:        true,
+		AllowNotification: false,
+	})
 
 	updatedText := "this has now been updated"
 	thread.Subject = updatedText
@@ -126,7 +180,7 @@ func TestThreadPutRequest(t *testing.T) {
 
 	requestUrl := fmt.Sprintf("http://localhost:8080/thread/%s", thread.Id)
 	putBody := bytes.NewBuffer(threadBytes)
-	req, err := http.NewRequest("PUT", requestUrl, putBody)
+	req := testRequest("PUT", requestUrl, putBody, t, clientKey, &mailbox)
 	if err != nil {
 		t.Error("Error building PUT request:", err)
 		return
@@ -175,6 +229,15 @@ func TestThreadPutRequest(t *testing.T) {
 }
 
 func TestThreadDeleteRequest(t *testing.T) {
+	mailbox, clientKey, err := datastore.NewMailboxWithKey()
+	if err != nil {
+		t.Fatal("error generating private key:", err)
+	}
+
+	if err := mailbox.Insert(); err != nil {
+		t.Fatal("Error inserting mailbox:", err)
+	}
+
 	thread := datastore.Thread{
 		Subject: "my days are numbered (in ms)",
 	}
@@ -183,12 +246,19 @@ func TestThreadDeleteRequest(t *testing.T) {
 		return
 	}
 
-	requestUrl := fmt.Sprintf("http://localhost:8080/thread/%s", thread.Id)
-	req, err := http.NewRequest("DELETE", requestUrl, nil)
-	if err != nil {
-		t.Error("Error building DELETE request:", err)
-		return
+	member := &datastore.ThreadMember{
+		MailboxId:         mailbox.Id,
+		ThreadId:          thread.Id,
+		AllowRead:         true,
+		AllowWrite:        true,
+		AllowNotification: false,
 	}
+	if err := thread.AddMember(member); err != nil {
+		t.Fatal("Error adding thread member:", err)
+	}
+
+	requestUrl := fmt.Sprintf("http://localhost:8080/thread/%s", thread.Id)
+	req := testRequest("DELETE", requestUrl, nil, t, clientKey, &mailbox)
 
 	w := httptest.NewRecorder()
 	tc.ServeHTTP(w, req)
@@ -214,10 +284,11 @@ func TestThreadMembersGetRequest(t *testing.T) {
 		return
 	}
 
-	mb := datastore.Mailbox{
-		PublicKey: "some-public-key",
-		DeviceId:  "some-device-id",
+	mb, clientKey, err := datastore.NewMailboxWithKey()
+	if err != nil {
+		t.Fatal("Error generating private key:", err)
 	}
+
 	if err := mb.Insert(); err != nil {
 		t.Error("Error saving mailbox:", err)
 		return
@@ -237,11 +308,7 @@ func TestThreadMembersGetRequest(t *testing.T) {
 	}
 
 	requestUrl := fmt.Sprintf("http://localhost:8080/thread/%s/members", thread.Id)
-	req, err := http.NewRequest("GET", requestUrl, nil)
-	if err != nil {
-		t.Error("Error building GET request:", err)
-		return
-	}
+	req := testRequest("GET", requestUrl, nil, t, clientKey, &mb)
 
 	w := httptest.NewRecorder()
 	tc.ServeHTTP(w, req)
@@ -307,17 +374,34 @@ func TestThreadMembersPostRequest(t *testing.T) {
 		return
 	}
 
-	mailbox := datastore.Mailbox{
-		PublicKey: "some-public-key",
-		DeviceId:  "some-device-id",
+	mailbox, clientKey, err := datastore.NewMailboxWithKey()
+	if err != nil {
+		t.Fatal("Error generating private key:", err)
 	}
+
 	if err := mailbox.Insert(); err != nil {
 		t.Error("Error insert mailbox for member add post request", err)
 		return
 	}
 
-	member := datastore.ThreadMember{
+	member := &datastore.ThreadMember{
 		MailboxId:         mailbox.Id,
+		AllowRead:         true,
+		AllowWrite:        true,
+		AllowNotification: false,
+	}
+
+	if err := thread.AddMember(member); err != nil {
+		t.Fatal("Error adding thread member:", err)
+	}
+
+	otherUser := datastore.NewMailbox()
+	if err := otherUser.Insert(); err != nil {
+		t.Fatal("Error inserting other user:", err)
+	}
+
+	member = &datastore.ThreadMember{
+		MailboxId:         otherUser.Id,
 		AllowRead:         true,
 		AllowWrite:        false,
 		AllowNotification: true,
@@ -331,11 +415,7 @@ func TestThreadMembersPostRequest(t *testing.T) {
 
 	postBody := bytes.NewBuffer(threadBytes)
 	rurl := fmt.Sprintf("http://localhost:8080/thread/%s/members", thread.Id)
-	req, err := http.NewRequest("POST", rurl, postBody)
-	if err != nil {
-		t.Error("Error building POST request:", err)
-		return
-	}
+	req := testRequest("POST", rurl, postBody, t, clientKey, &mailbox)
 
 	allMembers, err := thread.GetAllMembers()
 	if err != nil {
@@ -343,8 +423,8 @@ func TestThreadMembersPostRequest(t *testing.T) {
 		return
 	}
 
-	if len(allMembers) > 0 {
-		t.Error("Expected 0 thread members but found", len(allMembers))
+	if len(allMembers) != 1 {
+		t.Error("Expected 1 thread members but found", len(allMembers))
 		return
 	}
 
@@ -367,13 +447,13 @@ func TestThreadMembersPostRequest(t *testing.T) {
 		return
 	}
 
-	if len(allMembers) < 1 {
-		t.Error("Expected to find some members in database but found nothing")
+	if len(allMembers) != 2 {
+		t.Error("Expected to find 2 members in database but found", len(allMembers))
 		return
 	}
 
-	am := allMembers[0]
-	if am.AllowWrite {
+	am := allMembers[1]
+	if am.AllowWrite && allMembers[0].AllowWrite {
 		t.Error("Expected AllowWrite to be false but found true")
 		return
 	}
@@ -392,10 +472,11 @@ func TestThreadMembersPutRequest(t *testing.T) {
 		return
 	}
 
-	mailbox := datastore.Mailbox{
-		PublicKey: "some-public-key",
-		DeviceId:  "some-device-id",
+	mailbox, clientKey, err := datastore.NewMailboxWithKey()
+	if err != nil {
+		t.Fatal("Error generating private key:", err)
 	}
+
 	if err := mailbox.Insert(); err != nil {
 		t.Error("Error inserting mailbox for member put request", err)
 		return
@@ -404,8 +485,8 @@ func TestThreadMembersPutRequest(t *testing.T) {
 	member := datastore.ThreadMember{
 		MailboxId:         mailbox.Id,
 		AllowRead:         true,
-		AllowWrite:        false,
-		AllowNotification: true,
+		AllowWrite:        true,
+		AllowNotification: false,
 	}
 
 	if err := thread.AddMember(&member); err != nil {
@@ -413,7 +494,7 @@ func TestThreadMembersPutRequest(t *testing.T) {
 		return
 	}
 
-	member.AllowWrite = true
+	member.AllowNotification = true
 
 	threadBytes, err := json.Marshal(member)
 	if err != nil {
@@ -423,11 +504,7 @@ func TestThreadMembersPutRequest(t *testing.T) {
 	putBody := bytes.NewBuffer(threadBytes)
 
 	rurl := fmt.Sprintf("http://localhost:8080/thread/%s/members/%s", thread.Id, mailbox.Id)
-	req, err := http.NewRequest("PUT", rurl, putBody)
-	if err != nil {
-		t.Error("Error building POST request:", err)
-		return
-	}
+	req := testRequest("PUT", rurl, putBody, t, clientKey, &mailbox)
 
 	w := httptest.NewRecorder()
 	tc.ServeHTTP(w, req)
@@ -448,7 +525,7 @@ func TestThreadMembersPutRequest(t *testing.T) {
 		return
 	}
 
-	if dbm.AllowWrite != true {
+	if dbm.AllowNotification != true {
 		t.Error("AllowWrite is false when it was updated to true")
 		return
 	}
@@ -466,19 +543,20 @@ func TestThreadMembersDeleteRequest(t *testing.T) {
 		return
 	}
 
-	mailbox := datastore.Mailbox{
-		PublicKey: "some-public-key",
-		DeviceId:  "some-device-id",
+	mailbox, clientKey, err := datastore.NewMailboxWithKey()
+	if err != nil {
+		t.Fatal("Error generating private key:", err)
 	}
+
 	if err := mailbox.Insert(); err != nil {
 		t.Error("Error inserting mailbox:", err)
 		return
 	}
 
-	err := thread.AddMember(&datastore.ThreadMember{
+	err = thread.AddMember(&datastore.ThreadMember{
 		MailboxId:         mailbox.Id,
 		AllowRead:         true,
-		AllowWrite:        false,
+		AllowWrite:        true,
 		AllowNotification: true,
 	})
 	if err != nil {
@@ -487,11 +565,7 @@ func TestThreadMembersDeleteRequest(t *testing.T) {
 	}
 
 	rurl := fmt.Sprintf("http://localhost:8080/thread/%s/members/%s", thread.Id, mailbox.Id)
-	req, err := http.NewRequest("DELETE", rurl, nil)
-	if err != nil {
-		t.Error("Error building DELETE request:", err)
-		return
-	}
+	req := testRequest("DELETE", rurl, nil, t, clientKey, &mailbox)
 
 	w := httptest.NewRecorder()
 	tc.ServeHTTP(w, req)

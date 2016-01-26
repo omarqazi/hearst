@@ -1,7 +1,9 @@
 package datastore
 
 import (
+	"crypto/rsa"
 	"errors"
+	"github.com/omarqazi/hearst/auth"
 	"time"
 )
 
@@ -12,6 +14,28 @@ type Mailbox struct {
 	ConnectedAt time.Time
 	PublicKey   string `db:"public_key"`
 	DeviceId    string `db:"device_id"`
+}
+
+func NewMailbox() (mb Mailbox) {
+	mb.RequireId()
+	return
+}
+
+func NewMailboxWithKey() (Mailbox, *rsa.PrivateKey, error) {
+	mb := NewMailbox()
+
+	clientKey, err := auth.GeneratePrivateKey(2048)
+	if err != nil {
+		return mb, nil, err
+	}
+
+	pubKey, err := auth.StringForPublicKey(&clientKey.PublicKey)
+	if err != nil {
+		return mb, clientKey, err
+	}
+
+	mb.PublicKey = pubKey
+	return mb, clientKey, nil
 }
 
 // Function GetMailbox retrieves a Mailbox

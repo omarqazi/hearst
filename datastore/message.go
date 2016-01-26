@@ -16,8 +16,8 @@ type Message struct {
 	ExpiresAt       pq.NullTime `json:"-"`
 	Topic           string
 	Body            string
-	Labels          types.JsonText
-	Payload         types.JsonText
+	Labels          types.JSONText
+	Payload         types.JSONText
 }
 
 func (t *Thread) RecentMessages(limit int) (mx []Message, err error) {
