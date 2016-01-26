@@ -3,9 +3,11 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/omarqazi/hearst/auth"
 	"github.com/omarqazi/hearst/datastore"
 	"log"
 	"net/http"
+	"time"
 )
 
 type MailboxController struct {
@@ -65,6 +67,29 @@ func (c MailboxController) PostMailbox(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
 		fmt.Fprintln(w, "invalid request JSON")
 		return
+	}
+
+	if mailbox.PublicKey == "" {
+		if key, err := auth.GeneratePrivateKey(2048); err == nil {
+			if pub, err := auth.StringForPublicKey(&key.PublicKey); err == nil {
+				mailbox.PublicKey = pub
+				privateKeyString := auth.StringForPrivateKey(key)
+				w.Header().Add("X-Hearst-Mailbox-Key", privateKeyString)
+
+				token, err := auth.NewToken(serverSessionKey)
+				if err == nil {
+					session := auth.Session{
+						Token:    token,
+						Duration: 24 * time.Hour,
+					}
+					sigBytes, err := session.SignatureFor(key)
+					if err == nil {
+						session.Signature = sigBytes
+						w.Header().Add("X-Hearst-Session-Token", session.String())
+					}
+				}
+			}
+		}
 	}
 
 	if err := mailbox.Insert(); err != nil {
