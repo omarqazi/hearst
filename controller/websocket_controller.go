@@ -269,7 +269,9 @@ func (wsc WebSocketController) ListThread(request map[string]string, conn *webso
 		limit = 50
 	}
 
-	messages, err := thread.RecentMessages(limit)
+	historyTopicFilter := request["history_topic"]
+
+	messages, err := thread.RecentMessagesWithTopic(historyTopicFilter, limit)
 	if err != nil {
 		wsc.ErrorResponse(err.Error(), conn, broadcast)
 		return
