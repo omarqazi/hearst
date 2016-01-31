@@ -42,7 +42,12 @@ func (mc MessageController) GetMessage(tid string, w http.ResponseWriter, r *htt
 		return
 	}
 
-	recentMessages, err := thread.RecentMessages(messageLimit)
+	topic := r.URL.Query().Get("topic")
+	if topic == "" {
+		topic = "%"
+	}
+
+	recentMessages, err := thread.RecentMessagesWithTopic(topic, messageLimit)
 	if err != nil {
 		http.Error(w, "error finding recent messages", 500)
 		return
