@@ -20,6 +20,16 @@ type Message struct {
 	Payload         types.JSONText
 }
 
+func (t *Thread) RecentMessagesWithTopic(topicFilter string, limit int) (mx []Message, err error) {
+	mx = []Message{}
+	if topicFilter == "" {
+		topicFilter = "%"
+	}
+
+	err = PostgresDb.Select(&mx, "select * from messages where thread_id = $1 and topic = $2 order by createdat desc limit $3;", t.Id, topicFilter, limit)
+	return
+}
+
 func (t *Thread) RecentMessages(limit int) (mx []Message, err error) {
 	mx = []Message{}
 	err = PostgresDb.Select(&mx, "select * from messages where thread_id = $1 order by createdat desc limit $2;", t.Id, limit)
