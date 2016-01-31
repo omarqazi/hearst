@@ -13,6 +13,7 @@ import (
 )
 
 var mc = http.StripPrefix("/messages/", MessageController{})
+var testMessageTopic = "chat-message"
 
 func TestMessageGetRequest(t *testing.T) {
 	thread := datastore.Thread{Subject: "test message get request"}
@@ -51,10 +52,24 @@ func TestMessageGetRequest(t *testing.T) {
 	m := &datastore.Message{
 		ThreadId:        thread.Id,
 		SenderMailboxId: mailbox.Id,
+		Topic:           testMessageTopic,
 	}
 	m.Payload.Scan("{}")
 	m.Labels.Scan("{}")
 	if err := m.Insert(); err != nil {
+		t.Error("Error inserting message:", err)
+		return
+	}
+
+	otherMessageTopic := "another-message-topic"
+	mm := &datastore.Message{
+		ThreadId:        thread.Id,
+		SenderMailboxId: mailbox.Id,
+		Topic:           otherMessageTopic,
+	}
+	mm.Payload.Scan("{}")
+	mm.Labels.Scan("{}")
+	if err := mm.Insert(); err != nil {
 		t.Error("Error inserting message:", err)
 		return
 	}
@@ -98,8 +113,8 @@ func TestMessageGetRequest(t *testing.T) {
 		return
 	}
 
-	if len(responseMessages) == 0 {
-		t.Error("Expected 1 message but found 0")
+	if len(responseMessages) != 2 {
+		t.Error("Expected 2 messages but found", len(responseMessages))
 		return
 	}
 
@@ -107,6 +122,90 @@ func TestMessageGetRequest(t *testing.T) {
 
 	if responseMessage.SenderMailboxId != m.SenderMailboxId {
 		t.Error("Expected message", m, "but got", responseMessage)
+		return
+	}
+
+	testRequestUrl = fmt.Sprintf("http://localhost:8080/messages/%s?topic=%s", thread.Id, testMessageTopic)
+	req, err = http.NewRequest("GET", testRequestUrl, nil)
+	if err != nil {
+		t.Error("Error building GET request:", err)
+		return
+	}
+
+	req.Header.Add("X-Hearst-Mailbox", mailbox.Id)
+	token, err = auth.NewToken(serverSessionKey)
+	if err != nil {
+		t.Fatal("Error generating token", err)
+	}
+
+	sig, err = session.SignatureFor(clientKey)
+	if err != nil {
+		t.Fatal("Error signing session:", err)
+	}
+	session.Signature = sig
+	req.Header.Add("X-Hearst-Session", session.String())
+
+	w = httptest.NewRecorder()
+	mc.ServeHTTP(w, req)
+
+	if w.Code > 299 || w.Code < 200 {
+		t.Error("Expected 200 response code but got", w.Code)
+		return
+	}
+
+	decoder = json.NewDecoder(w.Body)
+	if err := decoder.Decode(&responseMessages); err != nil {
+		t.Error("Error decoding message from response body", err)
+		return
+	}
+
+	if len(responseMessages) != 1 {
+		t.Error("Expected 1 message but found", len(responseMessages))
+		return
+	}
+
+	responseMessage = responseMessages[0]
+
+	if responseMessage.Topic != testMessageTopic {
+		t.Fatal("Expected topic", testMessageTopic, "but got", responseMessage.Topic)
+	}
+
+	testRequestUrl = fmt.Sprintf("http://localhost:8080/messages/%s?topic=SomeCrazyNonexistantTopic", thread.Id)
+	req, err = http.NewRequest("GET", testRequestUrl, nil)
+	if err != nil {
+		t.Error("Error building GET request:", err)
+		return
+	}
+
+	req.Header.Add("X-Hearst-Mailbox", mailbox.Id)
+	token, err = auth.NewToken(serverSessionKey)
+	if err != nil {
+		t.Fatal("Error generating token", err)
+	}
+
+	sig, err = session.SignatureFor(clientKey)
+	if err != nil {
+		t.Fatal("Error signing session:", err)
+	}
+	session.Signature = sig
+	req.Header.Add("X-Hearst-Session", session.String())
+
+	w = httptest.NewRecorder()
+	mc.ServeHTTP(w, req)
+
+	if w.Code > 299 || w.Code < 200 {
+		t.Error("Expected 200 response code but got", w.Code)
+		return
+	}
+
+	decoder = json.NewDecoder(w.Body)
+	if err := decoder.Decode(&responseMessages); err != nil {
+		t.Error("Error decoding message from response body", err)
+		return
+	}
+
+	if len(responseMessages) != 0 {
+		t.Error("Expected 0 messages but found", len(responseMessages))
 		return
 	}
 
