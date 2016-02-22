@@ -6,10 +6,11 @@ import (
 )
 
 type Thread struct {
-	Id        string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Subject   string
+	Id         string // a unique UUID
+	Identifier string // a human readable name for the thread
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	Subject    string
 }
 
 type ThreadMember struct {
