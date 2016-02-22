@@ -8,3 +8,8 @@ testing:
   open: dbname=hearst user=postgres sslmode=disable
   import: github.com/lib/pq
   dialect: postgres
+production:
+  driver: postgres
+  open: $HEARST_POSTGRES
+  import: github.com/lib/pq
+  dialect: postgres	
