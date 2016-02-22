@@ -35,12 +35,12 @@ func GetThread(uuid string) (Thread, error) {
 }
 
 func (t *Thread) Insert() error {
-	t.RequireId()
+	t.FillMissing()
 
 	tx := PostgresDb.MustBegin()
 	tx.NamedExec(`
-		insert into threads (id, createdat, updatedat, subject)
-		VALUES (:id, now(), now(), :subject)
+		insert into threads (id, createdat, updatedat, subject, identifier)
+		VALUES (:id, now(), now(), :subject, :identifier)
 	`, t)
 	err := tx.Commit()
 	Stream.AnnounceEvent("thread-insert-"+t.Id, t)
@@ -54,7 +54,7 @@ func (t *Thread) Update() error {
 
 	tx := PostgresDb.MustBegin()
 	tx.NamedExec(`
-		update threads set updatedat = now(), subject = :subject where id = :id
+		update threads set updatedat = now(), subject = :subject, identifier = :identifier where id = :id
 	`, t)
 	err := tx.Commit()
 	Stream.AnnounceEvent("thread-update-"+t.Id, t)
@@ -133,12 +133,35 @@ func (m *ThreadMember) Remove() error {
 	return err
 }
 
+// Function RequireId generates a UUID if the Id field is blank
+// It returns the Id field, guaranteed to not be blank
 func (t *Thread) RequireId() string {
 	if t.Id == "" {
 		t.GenerateUUID()
 	}
 
 	return t.Id
+}
+
+// Funciton RequireIdentifier sets the identifier of the thread
+// to it's UUID if the identifier is blank.
+// It returns the threads identifier, guaranteed to not be blank
+func (t *Thread) RequireIdentifier() string {
+	if t.Identifier == "" {
+		t.Identifier = t.RequireId()
+	}
+
+	return t.Identifier
+}
+
+// Function FillMissing fills all missing fields required to insert
+// the thread into the database.
+// It returns the Id and Identifier fields of the thread
+func (t *Thread) FillMissing() (string, string) {
+	id := t.RequireId()
+	identifier := t.RequireIdentifier()
+	return id, identifier
+
 }
 
 func (t *Thread) GenerateUUID() string {
