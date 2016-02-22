@@ -21,6 +21,54 @@ func TestInsertThread(t *testing.T) {
 	testThreadId = tr.Id
 }
 
+// The thread has a field called identifier which should
+// have a uniqueness constarint across the table enforced
+// by the database engine
+func TestThreadIdentifierUnique(t *testing.T) {
+	appleIdentifier := "apple-identifier"
+	orangeIdentifier := "orange-identifier"
+
+	tr := Thread{
+		Subject:    threadSubject,
+		Identifier: appleIdentifier,
+	}
+
+	if err := tr.Insert(); err != nil {
+		t.Fatal("Error inserting thread that should be unique:", err)
+	}
+
+	trx := Thread{
+		Subject:    "some random subject",
+		Identifier: appleIdentifier,
+	}
+
+	if err := trx.Insert(); err == nil {
+		tr.Delete()
+		trx.Delete()
+		t.Fatal("Expected insert of already assigned identifier to fail, but it did not:", trx)
+	}
+
+	dbTr, err := GetThread(tr.Id)
+	if err != nil {
+		tr.Delete()
+		t.Fatal("Error getting thread that was supposedly inserted while testing uniqueness:", err)
+	}
+
+	if dbTr.Subject != threadSubject {
+		dbTr.Delete()
+		t.Fatal("Error: Expected thread to have subject", threadSubject, "but found", dbTr.Subject)
+	}
+
+	trx.Identifier = orangeIdentifier
+	if err := trx.Insert(); err != nil {
+		tr.Delete()
+		t.Fatal("Expected thread insert to succeed after changing to unique identifier but it did not")
+	}
+
+	tr.Delete()
+	trx.Delete()
+}
+
 func TestSelectThread(t *testing.T) {
 	TestInsertThread(t)
 	defer CleanUpThread(t)
