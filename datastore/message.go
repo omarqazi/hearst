@@ -28,13 +28,17 @@ func (t *Thread) RecentMessagesWithTopic(topicFilter string, limit int) (mx []Me
 		topicFilter = "%"
 	}
 
-	err = PostgresDb.Select(&mx, "select * from messages where thread_id = $1 and topic LIKE $2 order by createdat desc limit $3;", t.Id, topicFilter, limit)
+	err = PostgresDb.Select(&mx, `
+	select * from (select * from messages where thread_id = $1 and topic LIKE $2 order by index desc limit $3) as sub order by index asc;
+	`, t.Id, topicFilter, limit)
 	return
 }
 
 func (t *Thread) RecentMessages(limit int) (mx []Message, err error) {
 	mx = []Message{}
-	err = PostgresDb.Select(&mx, "select * from messages where thread_id = $1 order by createdat desc limit $2;", t.Id, limit)
+	err = PostgresDb.Select(&mx, `
+		select * from (select * from messages where thread_id = $1 order by index desc limit $2) as sub order by index asc;
+		`, t.Id, limit)
 	return
 }
 
