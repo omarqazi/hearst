@@ -82,7 +82,7 @@ func (mc MessageController) PostMessage(w http.ResponseWriter, r *http.Request, 
 	}
 
 	if err := message.Insert(); err != nil {
-		http.Error(w, "error inserting message", 500)
+		http.Error(w, fmt.Sprint("Error inserting message:", err), 500)
 		return
 	}
 
