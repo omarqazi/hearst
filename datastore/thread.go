@@ -11,6 +11,7 @@ type Thread struct {
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 	Subject    string
+	Domain     string // the domain of the server that owns this thread
 }
 
 type ThreadMember struct {
@@ -39,8 +40,8 @@ func (t *Thread) Insert() error {
 
 	tx := PostgresDb.MustBegin()
 	tx.NamedExec(`
-		insert into threads (id, createdat, updatedat, subject, identifier)
-		VALUES (:id, now(), now(), :subject, :identifier)
+		insert into threads (id, createdat, updatedat, subject, identifier, domain)
+		VALUES (:id, now(), now(), :subject, :identifier, :domain)
 	`, t)
 	err := tx.Commit()
 	Stream.AnnounceEvent("thread-insert-"+t.Id, t)
@@ -54,7 +55,7 @@ func (t *Thread) Update() error {
 
 	tx := PostgresDb.MustBegin()
 	tx.NamedExec(`
-		update threads set updatedat = now(), subject = :subject, identifier = :identifier where id = :id
+		update threads set updatedat = now(), subject = :subject, identifier = :identifier, domain = :domain where id = :id
 	`, t)
 	err := tx.Commit()
 	Stream.AnnounceEvent("thread-update-"+t.Id, t)
@@ -160,6 +161,7 @@ func (t *Thread) RequireIdentifier() string {
 func (t *Thread) FillMissing() (string, string) {
 	id := t.RequireId()
 	identifier := t.RequireIdentifier()
+	t.Domain = "chat.smick.co"
 	return id, identifier
 
 }
