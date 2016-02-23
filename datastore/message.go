@@ -2,6 +2,7 @@ package datastore
 
 import (
 	"errors"
+	"fmt"
 	"github.com/jmoiron/sqlx/types"
 	"github.com/lib/pq"
 	"time"
@@ -53,12 +54,14 @@ func (m *Message) Insert() error {
 	m.RequireId()
 	m.CreatedAt = time.Now()
 	tx := PostgresDb.MustBegin()
-	_, err := tx.NamedExec(`
-		insert into messages
-		(id, thread_id, sender_mailbox_id, createdat, updatedat, expiresat, topic, body, labels, payload)
-		VALUES
-		(:id, :thread_id, :sender_mailbox_id, now(), now(), :expiresat, :topic, :body, :labels, :payload);
-	`, m)
+	sequenceName := (&Thread{Id: m.ThreadId}).SequenceName()
+	query := fmt.Sprintf(`
+	insert into messages 
+		(id, thread_id, sender_mailbox_id, createdat, updatedat, expiresat, topic, body, labels, payload, index)
+	VALUES
+		(:id, :thread_id, :sender_mailbox_id, now(), now(), :expiresat, :topic, :body, :labels, :payload, nextval('%s'))
+	`, sequenceName)
+	_, err := tx.NamedExec(query, m)
 	if err != nil {
 		return err
 	}
