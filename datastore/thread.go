@@ -27,14 +27,16 @@ type ThreadMember struct {
 func GetThread(uuid string) (Thread, error) {
 	tx := []Thread{}
 	db := PostgresDb.Unsafe()
-	err := db.Select(&tx, "select * from threads where id = $1", uuid)
+	err := db.Select(&tx, "select * from threads where id = $1 limit 1", uuid)
 	if err != nil {
-		return Thread{}, err
-	} else if len(tx) > 0 {
-		return tx[0], nil
+		err = db.Select(&tx, "select * from threads where identifier = $1 limit 1", uuid)
 	}
 
-	return Thread{}, errors.New("No thread found with that UUID")
+	if len(tx) == 0 {
+		return Thread{}, errors.New("No thread found with that UUID")
+	}
+
+	return tx[0], err
 }
 
 func (t *Thread) Insert() error {

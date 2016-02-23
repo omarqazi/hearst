@@ -85,6 +85,30 @@ func TestSelectThread(t *testing.T) {
 	}
 }
 
+func TestSelectThreadByIdentifier(t *testing.T) {
+	TestInsertThread(t)
+	defer CleanUpThread(t)
+
+	tr, err := GetThread(testThreadId)
+	if err != nil {
+		t.Fatal("Error getting thread:", err)
+	}
+
+	tr.Identifier = "select-thread-identifier"
+	if err := tr.Update(); err != nil {
+		t.Fatal("Error updating thread when testing seelct by identifier:", err)
+	}
+
+	ti, err := GetThread(tr.Identifier)
+	if err != nil {
+		t.Fatal("Could not load thread by identifier:", err)
+	}
+
+	if ti.Id != tr.Id {
+		t.Fatal("Expected to find thread", tr.Id, "but found thread", ti.Id)
+	}
+}
+
 func TestUpdateThread(t *testing.T) {
 	TestInsertThread(t)
 	defer CleanUpThread(t)
