@@ -12,4 +12,4 @@ production:
   driver: postgres
   open: $HEARST_POSTGRES
   import: github.com/lib/pq
-  dialect: postgres	
+  dialect: postgres
