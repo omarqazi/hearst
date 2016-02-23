@@ -2,6 +2,8 @@ package datastore
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -41,11 +43,17 @@ func (t *Thread) Insert() error {
 	tx := PostgresDb.MustBegin()
 	tx.NamedExec(`
 		insert into threads (id, createdat, updatedat, subject, identifier, domain)
-		VALUES (:id, now(), now(), :subject, :identifier, :domain)
+		VALUES (:id, now(), now(), :subject, :identifier, :domain);
 	`, t)
+	tx.Exec(fmt.Sprintf("create sequence %s;", t.SequenceName()))
 	err := tx.Commit()
 	Stream.AnnounceEvent("thread-insert-"+t.Id, t)
 	return err
+}
+
+func (t *Thread) SequenceName() (sname string) {
+	sname = strings.Replace("log-counter-"+t.Id, "-", "_", -1)
+	return
 }
 
 func (t *Thread) Update() error {
@@ -71,6 +79,7 @@ func (t *Thread) Delete() error {
 	tx.NamedExec(`
 		delete from threads where id = :id
 	`, t)
+	tx.Exec(fmt.Sprintf("drop sequence %s;", t.SequenceName()))
 	err := tx.Commit()
 	Stream.AnnounceEvent("thread-delete-"+t.Id, t)
 	return err
