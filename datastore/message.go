@@ -18,6 +18,7 @@ type Message struct {
 	Body            string
 	Labels          types.JSONText
 	Payload         types.JSONText
+	Index           int
 }
 
 func (t *Thread) RecentMessagesWithTopic(topicFilter string, limit int) (mx []Message, err error) {
