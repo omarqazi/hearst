@@ -13,6 +13,7 @@ var routes = map[string]http.Handler{
 	"/thread/":   controller.ThreadController{},
 	"/messages/": controller.MessageController{},
 	"/socket/":   controller.WebSocketController{},
+	"/sock/":     controller.SockController{},
 	"/auth/":     controller.AuthController{},
 }
 
