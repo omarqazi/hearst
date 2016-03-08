@@ -10,6 +10,10 @@ import (
 	"strings"
 )
 
+type Controller interface {
+	GetUUID(uuid string) (output interface{}, err error)
+}
+
 // function path components returns the path components
 // for the url in a given request
 func pathComponents(r *http.Request) (comps []string) {

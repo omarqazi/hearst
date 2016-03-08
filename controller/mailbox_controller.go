@@ -37,10 +37,15 @@ func (c MailboxController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (c MailboxController) GetUUID(uuid string) (output interface{}, err error) {
+	output, err = datastore.GetMailbox(uuid)
+	return
+}
+
 // Function GetMailbox handles a GET request by retrieving
 // a mailbox and rendering it as JSON
 func (c MailboxController) GetMailbox(mbid string, w http.ResponseWriter, r *http.Request) {
-	mb, err := datastore.GetMailbox(mbid)
+	mb, err := c.GetUUID(mbid)
 	if err != nil {
 		w.WriteHeader(404)
 		fmt.Fprintln(w, "mailbox not found")

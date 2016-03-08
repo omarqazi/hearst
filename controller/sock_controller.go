@@ -57,7 +57,7 @@ func (sc SockController) HandleReads(conn *websocket.Conn, responses chan interf
 
 		switch request["action"] {
 		case "create":
-			responses <- map[string]string{"ye": "creating"}
+			err = sc.HandleCreate(request, conn, responses, r)
 		case "read":
 			responses <- map[string]string{"ye": "reading"}
 		case "update":
@@ -67,7 +67,16 @@ func (sc SockController) HandleReads(conn *websocket.Conn, responses chan interf
 		default:
 			responses <- map[string]string{"error": "invalid action"}
 		}
+
+		if err != nil {
+			return
+		}
 	}
+}
+
+func (sc SockController) HandleCreate(request map[string]string, conn *websocket.Conn, responses chan interface{}, r *http.Request) (err error) {
+	responses <- map[string]string{"ye": "i am a function"}
+	return
 }
 
 // Function HandleWrites coordinates all write operations on the socket by
