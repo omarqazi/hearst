@@ -6,7 +6,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/omarqazi/hearst/auth"
 	"github.com/omarqazi/hearst/datastore"
-	"log"
 	"net/http"
 	"time"
 )
