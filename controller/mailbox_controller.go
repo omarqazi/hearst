@@ -70,24 +70,10 @@ func (c MailboxController) PostMailbox(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if mailbox.PublicKey == "" {
-		if key, err := auth.GeneratePrivateKey(2048); err == nil {
-			if pub, err := auth.StringForPublicKey(&key.PublicKey); err == nil {
-				mailbox.PublicKey = pub
-				privateKeyString := auth.StringForPrivateKey(key)
-				w.Header().Add("X-Hearst-Mailbox-Key", privateKeyString)
-
-				token, err := auth.NewToken(serverSessionKey)
-				if err == nil {
-					session := auth.Session{
-						Token:    token,
-						Duration: 24 * time.Hour,
-					}
-					sigBytes, err := session.SignatureFor(key)
-					if err == nil {
-						session.Signature = sigBytes
-						w.Header().Add("X-Hearst-Session-Token", session.String())
-					}
-				}
+		if key, err := mailbox.GenerateNewKey(); err == nil {
+			w.Header().Add("X-Hearst-Mailbox-Key", auth.StringForPrivateKey(key))
+			if token, err := mailbox.SessionToken(24*time.Hour, key, serverSessionKey); err == nil {
+				w.Header().Add("X-Hearst-Session-Token", token)
 			}
 		}
 	}

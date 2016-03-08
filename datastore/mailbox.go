@@ -53,6 +53,36 @@ func GetMailbox(uuid string) (Mailbox, error) {
 	return Mailbox{}, errors.New("No mailbox found with that UUID")
 }
 
+// Function GenerateNewKey generates a new private key and sets the mailboxes
+// public key to match. It returns the newly generated private key
+func (mb *Mailbox) GenerateNewKey() (key *rsa.PrivateKey, err error) {
+	if key, err = auth.GeneratePrivateKey(2048); err != nil { // generate a new key
+		return
+	}
+
+	mb.PublicKey, err = auth.StringForPublicKey(&key.PublicKey)
+	return
+}
+
+func (mb *Mailbox) SessionToken(duration time.Duration, mailboxKey *rsa.PrivateKey, serverSessionKey *rsa.PrivateKey) (string, error) {
+	token, err := auth.NewToken(serverSessionKey)
+	if err != nil {
+		return "", err
+	}
+
+	session := auth.Session{
+		Token:    token,
+		Duration: duration,
+	}
+	sigBytes, err := session.SignatureFor(mailboxKey)
+	if err != nil {
+		return "", err
+	}
+
+	session.Signature = sigBytes
+	return session.String(), nil
+}
+
 // Function Insert executes an SQL insert statement
 // to add the mailbox to the database
 func (mb *Mailbox) Insert() error {

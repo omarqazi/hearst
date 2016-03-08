@@ -3,6 +3,8 @@ package controller
 import (
 	"errors"
 	"github.com/gorilla/websocket"
+	"github.com/omarqazi/hearst/auth"
+	"github.com/omarqazi/hearst/datastore"
 	"log"
 	"net/http"
 	"time"
@@ -33,6 +35,11 @@ func (sc SockController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	conn.SetPongHandler(sc.HandlePong)
 	responses := make(chan interface{}, 10)
 
+	_, err = sc.IdentifyClient(conn)
+	if err != nil {
+		return
+	}
+
 	go sc.HandleReads(conn, responses, r)
 	sc.HandleWrites(conn, responses, time.Tick(pingTime))
 }
@@ -48,7 +55,18 @@ func (sc SockController) HandleReads(conn *websocket.Conn, responses chan interf
 			return
 		}
 
-		responses <- request
+		switch request["action"] {
+		case "create":
+			responses <- map[string]string{"ye": "creating"}
+		case "read":
+			responses <- map[string]string{"ye": "reading"}
+		case "update":
+			responses <- map[string]string{"ye": "updating"}
+		case "delete":
+			responses <- map[string]string{"ye": "deleting"}
+		default:
+			responses <- map[string]string{"error": "invalid action"}
+		}
 	}
 }
 
@@ -66,6 +84,43 @@ func (sc SockController) HandleWrites(conn *websocket.Conn, jsonWrites <-chan in
 		case <-pingWrites: // if it's time to ping the client, send a ping
 			err = conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(pingTime))
 		}
+	}
+
+	return
+}
+
+// Function IdentifyClient attempts to identify the user over a web socket connection
+// It must have exclusive access to io on the connection until it returns
+func (sc SockController) IdentifyClient(conn *websocket.Conn) (mb datastore.Mailbox, err error) {
+	var authRequest map[string]string
+	if err = conn.ReadJSON(&authRequest); err != nil { // read auth request from connection
+		conn.WriteJSON(map[string]string{"error": "client failed to identify itself"})
+		return
+	}
+
+	switch authRequest["auth"] {
+	case "session":
+		mailboxId := authRequest["mailbox"]
+		token := authRequest["token"]
+
+		if mb, err = datastore.GetMailbox(mailboxId); err != nil {
+			return
+		}
+
+		pubKey, er := auth.PublicKeyFromString(mb.PublicKey)
+		if er != nil {
+			return mb, er
+		}
+
+		session, erx := auth.ParseSession(token)
+		if erx != nil {
+			return mb, erx
+		}
+
+		err = session.Valid(pubKey, &serverSessionKey.PublicKey)
+	default:
+		err = errors.New("invalid auth type")
+		conn.WriteJSON(map[string]string{"error": "invalid auth type"})
 	}
 
 	return
