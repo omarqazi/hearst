@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"crypto/rsa"
 	"errors"
 	"github.com/gorilla/websocket"
 	"github.com/omarqazi/hearst/auth"
@@ -118,6 +119,27 @@ func (sc SockController) IdentifyClient(conn *websocket.Conn) (mb datastore.Mail
 		}
 
 		err = session.Valid(pubKey, &serverSessionKey.PublicKey)
+	case "temp", "new":
+		var key *rsa.PrivateKey
+		mb, key, err = datastore.NewMailboxWithKey()
+		if err != nil {
+			return
+		}
+
+		token, erx := mb.SessionToken(24*time.Hour, key, serverSessionKey)
+		if erx != nil {
+			err = erx
+			return
+		}
+
+		if err = mb.Insert(); err != nil {
+			return
+		}
+		authResponse := map[string]string{"mailbox_id": mb.Id, "session_token": token}
+		if authRequest["auth"] == "new" {
+			authResponse["private_key"] = auth.StringForPrivateKey(key)
+		}
+		conn.WriteJSON(authResponse)
 	default:
 		err = errors.New("invalid auth type")
 		conn.WriteJSON(map[string]string{"error": "invalid auth type"})
@@ -128,6 +150,5 @@ func (sc SockController) IdentifyClient(conn *websocket.Conn) (mb datastore.Mail
 
 // Function HandlePong is called when the client responds to a ping
 func (sc SockController) HandlePong(appData string) error {
-	log.Println("Got pong:", appData)
 	return nil
 }
