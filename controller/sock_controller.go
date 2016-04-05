@@ -35,18 +35,24 @@ func (sc SockController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	conn.SetPongHandler(sc.HandlePong)
 	responses := make(chan interface{}, 10)
 
-	_, err = sc.IdentifyClient(conn)
+	mb, err := sc.IdentifyClient(conn)
 	if err != nil {
 		return
 	}
 
-	go sc.HandleReads(conn, responses, r)
-	sc.HandleWrites(conn, responses, time.Tick(pingTime))
+	mb.StillConnected()
+	conn.SetPongHandler(func(appData string) error {
+		mb.StillConnected()
+		return nil
+	})
+
+	go sc.HandleReads(conn, responses, r, &mb)
+	sc.HandleWrites(conn, responses, time.Tick(pingTime), &mb)
 }
 
 // Function HandleReads reads json requests from the socket, processes them
 // through the apropriate controller, and sends the response to the client
-func (sc SockController) HandleReads(conn *websocket.Conn, responses chan interface{}, r *http.Request) (err error) {
+func (sc SockController) HandleReads(conn *websocket.Conn, responses chan interface{}, r *http.Request, mb *datastore.Mailbox) (err error) {
 	var request map[string]string
 	defer close(responses)
 
@@ -54,6 +60,8 @@ func (sc SockController) HandleReads(conn *websocket.Conn, responses chan interf
 		if err = conn.ReadJSON(&request); err != nil {
 			return
 		}
+
+		mb.StillConnected()
 
 		switch request["action"] {
 		case "create":
@@ -81,8 +89,9 @@ func (sc SockController) HandleCreate(request map[string]string, conn *websocket
 
 // Function HandleWrites coordinates all write operations on the socket by
 // listening to multiple channels and writing any received data
-func (sc SockController) HandleWrites(conn *websocket.Conn, jsonWrites <-chan interface{}, pingWrites <-chan time.Time) (err error) {
+func (sc SockController) HandleWrites(conn *websocket.Conn, jsonWrites <-chan interface{}, pingWrites <-chan time.Time, mb *datastore.Mailbox) (err error) {
 	for err = nil; err == nil; { // Loop until there's an error (like client close)
+		mb.StillConnected()
 		select { // listen to all channels
 		case j, more := <-jsonWrites: // If we get a json response object, send it down
 			if more {
