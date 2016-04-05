@@ -62,5 +62,8 @@ func authorizedMailbox(r *http.Request) (mb datastore.Mailbox, err error) {
 	}
 
 	err = session.Valid(pubKey, &serverSessionKey.PublicKey)
+	if err == nil {
+		mb.StillConnected()
+	}
 	return
 }
