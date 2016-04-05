@@ -16,6 +16,10 @@ var PostgresDb *sqlx.DB = nil
 var RedisDb *redis.Client
 var Stream EventStream
 
+type DatabaseObject interface {
+	Insert() error
+}
+
 func init() {
 	if err := ConnectPostgres(); err != nil {
 		log.Fatalln("Error connecting to postgres:", err)

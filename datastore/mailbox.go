@@ -95,16 +95,26 @@ func (mb *Mailbox) Insert() error {
 	return err
 }
 
-func (mb *Mailbox) Update() error {
+func (mb *Mailbox) Update() (err error) {
+	err = mb.ExecuteUpdateQuery(`
+		update mailboxes set updatedat = now(), connectedat = now(),
+		public_key = :public_key, device_id = :device_id where id = :id;
+	`)
+	return
+}
+
+func (mb *Mailbox) StillConnected() (err error) {
+	err = mb.ExecuteUpdateQuery("update mailboxes set updatedat = now(), connectedat = now() where id = :id;")
+	return
+}
+
+func (mb *Mailbox) ExecuteUpdateQuery(query string) error {
 	if mb.Id == "" {
 		return mb.Insert()
 	}
 
 	tx := PostgresDb.MustBegin()
-	tx.NamedExec(`
-		update mailboxes set updatedat = now(), connectedat = now(),
-		public_key = :public_key, device_id = :device_id where id = :id;
-	`, mb)
+	tx.NamedExec(query, mb)
 	err := tx.Commit()
 	Stream.AnnounceEvent("mailbox-update-"+mb.Id, mb)
 	return err

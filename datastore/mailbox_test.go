@@ -3,6 +3,7 @@ package datastore
 import (
 	"github.com/omarqazi/hearst/auth"
 	"testing"
+	"time"
 )
 
 var testMailboxId string
@@ -79,6 +80,39 @@ func TestMailboxUpdate(t *testing.T) {
 		t.Error("Error: Expected device id", newDeviceId, "but got", mbx.DeviceId)
 		return
 	}
+}
+
+// mb.StillConnected should update the UpdatedAt and ConnectedAt fields,
+// but not any other fields.
+func TestMailboxStillConnected(t *testing.T) {
+	TestMailboxInsert(t) // create a new mailbox
+	mb, err := GetMailbox(testMailboxId)
+	if err != nil {
+		t.Fatal("Error getting mailbox for connected update", err)
+	}
+
+	// this test could be better implemented by setting the connectedat time
+	// manually to something else, rather than sleeping. but i'm lazy
+	time.Sleep(1 * time.Second)
+
+	mb.DeviceId = ""
+	mb.PublicKey = ""
+	if err := mb.StillConnected(); err != nil {
+		t.Fatal("Error telling database that we are still connected", err)
+	}
+
+	mbx, err := GetMailbox(testMailboxId)
+	if mbx.ConnectedAt == mb.ConnectedAt {
+		t.Fatal("Expected ConnectedAt to change but new time was", mbx.ConnectedAt, "and old time was", mb.ConnectedAt)
+	}
+	if mbx.UpdatedAt == mb.UpdatedAt {
+		t.Fatal("Expected UpdatedAt to change but new time was", mbx.UpdatedAt, "and old time was", mb.UpdatedAt)
+	}
+
+	if mbx.DeviceId == "" || mbx.PublicKey == "" {
+		t.Fatal("Error: DeviceId or PublicKey changed when calling still connected", mbx)
+	}
+
 }
 
 func TestMailboxDelete(t *testing.T) {
