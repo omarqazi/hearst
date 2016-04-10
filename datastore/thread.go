@@ -144,6 +144,22 @@ func (m *ThreadMember) Insert() (err error) {
 	return
 }
 
+func (m *ThreadMember) Load() (err error) {
+	members := []ThreadMember{}
+	err = PostgresDb.Select(&members, "select * from thread_members where mailbox_id = $1 and thread_id = $2", m.MailboxId, m.ThreadId)
+	if err != nil {
+		return
+	} else if len(members) > 0 {
+		dbm := members[0]
+		m.AllowRead = dbm.AllowRead
+		m.AllowWrite = dbm.AllowWrite
+		m.AllowNotification = dbm.AllowNotification
+		return nil
+	}
+
+	return errors.New("No member found with that mailbox id")
+}
+
 func (m *ThreadMember) UpdatePermissions() error {
 	tx := PostgresDb.MustBegin()
 	tx.NamedExec(`
