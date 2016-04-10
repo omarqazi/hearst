@@ -42,16 +42,10 @@ func (t *Thread) RecentMessages(limit int) (mx []Message, err error) {
 	return
 }
 
-func GetMessage(uuid string) (Message, error) {
-	mx := []Message{}
-	err := PostgresDb.Select(&mx, "select * from messages where id = $1", uuid)
-	if err != nil {
-		return Message{}, err
-	} else if len(mx) > 0 {
-		return mx[0], nil
-	}
-
-	return Message{}, errors.New("No message found with that UUID")
+func GetMessage(uuid string) (m Message, err error) {
+	m.Id = uuid
+	err = m.Load()
+	return
 }
 
 func (m *Message) Insert() error {
@@ -80,6 +74,29 @@ func (m *Message) Insert() error {
 	err = tx.Commit()
 	Stream.AnnounceEvent("message-insert-"+m.ThreadId, m)
 	return err
+}
+
+func (m *Message) Load() error {
+	mx := []Message{}
+	err := PostgresDb.Select(&mx, "select * from messages where id = $1", m.Id)
+	if err != nil {
+		return err
+	} else if len(mx) > 0 {
+		mdb := mx[0]
+		m.ThreadId = mdb.ThreadId
+		m.SenderMailboxId = mdb.SenderMailboxId
+		m.CreatedAt = mdb.CreatedAt
+		m.UpdatedAt = mdb.UpdatedAt
+		m.ExpiresAt = mdb.ExpiresAt
+		m.Topic = mdb.Topic
+		m.Body = mdb.Body
+		m.Labels = mdb.Labels
+		m.Payload = mdb.Payload
+		m.Index = mdb.Index
+		return nil
+	}
+
+	return errors.New("No message found with that UUID")
 }
 
 func (m *Message) Update() error {
