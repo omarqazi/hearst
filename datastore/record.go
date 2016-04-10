@@ -12,7 +12,7 @@ type Record struct {
 
 type Recordable interface {
 	Insert() error
-	//Load() error
+	Load() error
 	PermissionThreadId() string // A thread id used to control permissions for the object
 }
 
