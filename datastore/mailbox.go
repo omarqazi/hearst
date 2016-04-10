@@ -131,3 +131,33 @@ func (mb *Mailbox) Delete() error {
 	Stream.AnnounceEvent("mailbox-delete-"+mb.Id, mb)
 	return err
 }
+
+func (mb *Mailbox) CanRead(threadId string) bool {
+	dbThread := Thread{Id: threadId}
+	member, err := dbThread.GetMember(mb.Id)
+	if err != nil || !member.AllowRead {
+		return false
+	}
+
+	return true
+}
+
+func (mb *Mailbox) CanWrite(threadId string) bool {
+	dbThread := Thread{Id: threadId}
+	member, err := dbThread.GetMember(mb.Id)
+	if err != nil || !member.AllowWrite {
+		return false
+	}
+
+	return true
+}
+
+func (mb *Mailbox) CanFollow(threadId string) bool {
+	dbThread := Thread{Id: threadId}
+	member, err := dbThread.GetMember(mb.Id)
+	if err != nil || !member.AllowNotification {
+		return false
+	}
+
+	return true
+}

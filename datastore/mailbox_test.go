@@ -135,6 +135,93 @@ func TestMailboxDelete(t *testing.T) {
 	}
 }
 
+func TestCanMethods(t *testing.T) {
+	mb := Mailbox{}
+	if err := mb.Insert(); err != nil {
+		t.Fatal("Could not insert mailbox when test Can methods", err)
+	}
+
+	thread := Thread{}
+	if err := thread.Insert(); err != nil {
+		t.Fatal("Could not insert thread when testing Can methods", err)
+	}
+
+	member := &ThreadMember{
+		MailboxId:         mb.Id,
+		ThreadId:          thread.Id,
+		AllowRead:         false,
+		AllowWrite:        false,
+		AllowNotification: false,
+	}
+
+	if mb.CanRead(thread.Id) || mb.CanWrite(thread.Id) || mb.CanFollow(thread.Id) {
+		t.Fatal("Error: mailbox with no thread member can read write or follow")
+	}
+
+	if err := thread.AddMember(member); err != nil {
+		t.Fatal("Error adding thread member", err)
+	}
+
+	if mb.CanRead(thread.Id) || mb.CanWrite(thread.Id) || mb.CanFollow(thread.Id) {
+		t.Fatal("Error: mailbox with no permissions can read write or follow")
+	}
+
+	member.AllowRead = true
+	if err := member.UpdatePermissions(); err != nil {
+		t.Fatal("Error updating thread member permisions:", err)
+	}
+
+	if !mb.CanRead(thread.Id) {
+		t.Fatal("Error: expected mailbox to be able to read thread, but CanRead returned false")
+	}
+
+	if mb.CanWrite(thread.Id) {
+		t.Fatal("Error: expected mailbox to not be able to write to thread, but CanRead returned true")
+	}
+
+	if mb.CanFollow(thread.Id) {
+		t.Fatal("Error: expected mailbox to not be able to follow thread, but CanFollow returned true")
+	}
+
+	member.AllowRead = false
+	member.AllowWrite = true
+
+	if err := member.UpdatePermissions(); err != nil {
+		t.Fatal("Error updating member permissions when trying Can methods")
+	}
+
+	if mb.CanRead(thread.Id) {
+		t.Fatal("Error: expected mailbox to not be able to read thread but CanRead returned true")
+	}
+
+	if !mb.CanWrite(thread.Id) {
+		t.Fatal("Error: expected mailbox to be able to write to thread but CanWrite returned false")
+	}
+
+	if mb.CanFollow(thread.Id) {
+		t.Fatal("Error: expected mailbox to not be able to follow thread but CanFollow returned true")
+	}
+
+	member.AllowWrite = false
+	member.AllowNotification = true
+
+	if err := member.UpdatePermissions(); err != nil {
+		t.Fatal("Error updating member permissions when testing Can methods", err)
+	}
+
+	if mb.CanRead(thread.Id) {
+		t.Fatal("Error: expected mailbox to not be able to read thread but CanRead returned true")
+	}
+
+	if mb.CanWrite(thread.Id) {
+		t.Fatal("Error: expected mailbox to not be able to write thread but CanWrite returned true")
+	}
+
+	if !mb.CanFollow(thread.Id) {
+		t.Fatal("Error: expected mailbox to be able to follow thread but CanFollow returned false")
+	}
+}
+
 func CleanUpMailbox(t *testing.T) {
 	if testMailboxId != "" {
 		mb, err := GetMailbox(testMailboxId)
