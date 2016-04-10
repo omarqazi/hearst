@@ -8,9 +8,7 @@ import (
 )
 
 type Mailbox struct {
-	Id          string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	Record
 	ConnectedAt time.Time
 	PublicKey   string `db:"public_key"`
 	DeviceId    string `db:"device_id"`
@@ -132,23 +130,4 @@ func (mb *Mailbox) Delete() error {
 	err := tx.Commit()
 	Stream.AnnounceEvent("mailbox-delete-"+mb.Id, mb)
 	return err
-}
-
-// Function RequireId generates a UUID if the
-// Id of the Mailbox is a blank string
-func (mb *Mailbox) RequireId() string {
-	if mb.Id == "" {
-		mb.GenerateUUID()
-	}
-
-	return mb.Id
-}
-
-// Function GenerateUUID generates a new UUID,
-// sets it as the id of the calling struct,
-// and returns the newly generated UUID
-func (mb *Mailbox) GenerateUUID() string {
-	newId := NewUUID()
-	mb.Id = newId
-	return newId
 }

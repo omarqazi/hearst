@@ -143,7 +143,7 @@ func (c MailboxController) DeleteMailbox(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	mailbox := datastore.Mailbox{Id: identifier}
+	mailbox := datastore.Mailbox{Record: datastore.Rec(identifier)}
 	if err := mailbox.Delete(); err != nil {
 		w.WriteHeader(404)
 		fmt.Fprintln(w, "mailbox not found")

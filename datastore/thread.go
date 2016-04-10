@@ -106,6 +106,7 @@ func (t *Thread) GetAllMembers() ([]ThreadMember, error) {
 }
 
 func (t *Thread) AddMember(m *ThreadMember) error {
+	t.RequireId()
 	m.ThreadId = t.Id
 	if m.MailboxId == "" {
 		return errors.New("Invalid mailbox ID for new member")

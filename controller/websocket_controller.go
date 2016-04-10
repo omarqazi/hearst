@@ -516,7 +516,7 @@ func (wsc WebSocketController) UpdateThreadMember(request map[string]string, con
 
 func (wsc WebSocketController) DeleteMailbox(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
 	if uuid, ok := request["delete_mailbox"]; ok {
-		mailbox := datastore.Mailbox{Id: uuid}
+		mailbox := datastore.Mailbox{Record: datastore.Rec(uuid)}
 		if err := mailbox.Delete(); err != nil {
 			wsc.ErrorResponse(err.Error(), conn, broadcast)
 			return

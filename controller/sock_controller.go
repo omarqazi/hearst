@@ -23,6 +23,13 @@ var socketizer = websocket.Upgrader{
 type SockController struct {
 }
 
+type SockRequest struct {
+	Conn        *websocket.Conn    // WebSocket connection object
+	Request     map[string]string  // Sock controller request -- tells sock controller what to do
+	HTTPRequest *http.Request      // HTTP request used to establish the sock connection
+	Client      *datastore.Mailbox // The authorized mailbox of the client that is making the request
+}
+
 // Upgrade incoming HTTP connections to WebSocket
 func (sc SockController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	conn, err := socketizer.Upgrade(w, r, nil)
@@ -53,19 +60,27 @@ func (sc SockController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Function HandleReads reads json requests from the socket, processes them
 // through the apropriate controller, and sends the response to the client
 func (sc SockController) HandleReads(conn *websocket.Conn, responses chan interface{}, r *http.Request, mb *datastore.Mailbox) (err error) {
-	var request map[string]string
 	defer close(responses)
+	var request map[string]string
+
+	req := SockRequest{
+		Conn:        conn,
+		Request:     request,
+		HTTPRequest: r,
+		Client:      mb,
+	}
 
 	for {
 		if err = conn.ReadJSON(&request); err != nil {
 			return
 		}
+		req.Request = request
 
 		mb.StillConnected()
 
 		switch request["action"] {
 		case "create":
-			err = sc.HandleCreate(request, conn, responses, r)
+			err = sc.HandleCreate(req, responses)
 		case "read":
 			responses <- map[string]string{"ye": "reading"}
 		case "update":
@@ -77,13 +92,51 @@ func (sc SockController) HandleReads(conn *websocket.Conn, responses chan interf
 		}
 
 		if err != nil {
+			responses <- map[string]string{"error": err.Error()}
 			return
 		}
 	}
 }
 
-func (sc SockController) HandleCreate(request map[string]string, conn *websocket.Conn, responses chan interface{}, r *http.Request) (err error) {
-	responses <- map[string]string{"ye": "i am a function"}
+func (sc SockController) HandleCreate(req SockRequest, responses chan interface{}) (err error) {
+	var dbo datastore.Recordable
+	switch req.Request["model"] {
+	case "mailbox":
+		dbo = &datastore.Mailbox{}
+	case "thread":
+		thread := datastore.Thread{}
+		dbo = &thread
+		adminMember := &datastore.ThreadMember{
+			ThreadId:          thread.Id,
+			MailboxId:         req.Client.Id,
+			AllowRead:         true,
+			AllowWrite:        true,
+			AllowNotification: true,
+		}
+
+		if memberErr := thread.AddMember(adminMember); memberErr != nil {
+			responses <- map[string]string{"error": "error adding thread member to new thread"}
+			return
+		}
+	case "message":
+		dbo = &datastore.Message{}
+	case "threadmember":
+		dbo = &datastore.Thread{}
+	default:
+		return errors.New("Error during create: invalid model type")
+	}
+
+	if err = req.Conn.ReadJSON(&dbo); err != nil {
+		return
+	}
+
+	if insertErr := dbo.Insert(); insertErr != nil {
+		responses <- map[string]string{"error": "could not create object"}
+		return
+	}
+
+	responses <- dbo
+
 	return
 }
 
