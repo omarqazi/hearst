@@ -143,7 +143,7 @@ func (wsc WebSocketController) HandleThread(request map[string]string, conn *web
 		go wsc.UpdateThread(request, conn, broadcast, thread)
 	} else if action == "delete" {
 		if uuid, ok := request["delete_thread"]; ok {
-			thread := datastore.Thread{Id: uuid}
+			thread := datastore.Thread{Record: datastore.Rec(uuid)}
 			member, err := thread.GetMember(mb.Id)
 			if err != nil || !member.AllowWrite {
 				wsc.ErrorResponse("cannot delete thread", conn, broadcast)
@@ -532,7 +532,7 @@ func (wsc WebSocketController) DeleteMailbox(request map[string]string, conn *we
 
 func (wsc WebSocketController) DeleteThread(request map[string]string, conn *websocket.Conn, broadcast chan interface{}) {
 	if uuid, ok := request["delete_thread"]; ok {
-		thread := datastore.Thread{Id: uuid}
+		thread := datastore.Thread{Record: datastore.Rec(uuid)}
 		if err := thread.Delete(); err != nil {
 			wsc.ErrorResponse(err.Error(), conn, broadcast)
 			return

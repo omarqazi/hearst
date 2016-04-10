@@ -4,14 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 )
 
 type Thread struct {
-	Id         string // a unique UUID
+	Record
 	Identifier string // a human readable name for the thread
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
 	Subject    string
 	Domain     string // the domain of the server that owns this thread
 }
@@ -127,7 +124,7 @@ func (m *ThreadMember) Insert() (err error) {
 		return errors.New("No thread ID in new thread member")
 	}
 
-	t := Thread{Id: m.ThreadId}
+	t := Thread{Record: Rec(m.ThreadId)}
 	if err = t.AddMember(m); err != nil {
 		return
 	}
@@ -166,16 +163,6 @@ func (m ThreadMember) PermissionThreadId() string {
 	return m.ThreadId
 }
 
-// Function RequireId generates a UUID if the Id field is blank
-// It returns the Id field, guaranteed to not be blank
-func (t *Thread) RequireId() string {
-	if t.Id == "" {
-		t.GenerateUUID()
-	}
-
-	return t.Id
-}
-
 // Funciton RequireIdentifier sets the identifier of the thread
 // to it's UUID if the identifier is blank.
 // It returns the threads identifier, guaranteed to not be blank
@@ -196,10 +183,4 @@ func (t *Thread) FillMissing() (string, string) {
 	t.Domain = "chat.smick.co"
 	return id, identifier
 
-}
-
-func (t *Thread) GenerateUUID() string {
-	newId := NewUUID()
-	t.Id = newId
-	return newId
 }

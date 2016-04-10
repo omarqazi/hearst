@@ -133,7 +133,7 @@ func (mb *Mailbox) Delete() error {
 }
 
 func (mb *Mailbox) CanRead(threadId string) bool {
-	dbThread := Thread{Id: threadId}
+	dbThread := Thread{Record: Rec(threadId)}
 	member, err := dbThread.GetMember(mb.Id)
 	if err != nil || !member.AllowRead {
 		return false
@@ -147,7 +147,7 @@ func (mb Mailbox) PermissionThreadId() string {
 }
 
 func (mb *Mailbox) CanWrite(threadId string) bool {
-	dbThread := Thread{Id: threadId}
+	dbThread := Thread{Record: Rec(threadId)}
 	member, err := dbThread.GetMember(mb.Id)
 	if err != nil || !member.AllowWrite {
 		return false
@@ -157,7 +157,7 @@ func (mb *Mailbox) CanWrite(threadId string) bool {
 }
 
 func (mb *Mailbox) CanFollow(threadId string) bool {
-	dbThread := Thread{Id: threadId}
+	dbThread := Thread{Record: Rec(threadId)}
 	member, err := dbThread.GetMember(mb.Id)
 	if err != nil || !member.AllowNotification {
 		return false

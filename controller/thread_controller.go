@@ -148,7 +148,7 @@ func (tc ThreadController) PutThread(w http.ResponseWriter, r *http.Request, mb 
 }
 
 func (tc ThreadController) DeleteThread(w http.ResponseWriter, r *http.Request, mb *datastore.Mailbox) {
-	thread := datastore.Thread{Id: rid(r)}
+	thread := datastore.Thread{Record: datastore.Rec(rid(r))}
 
 	member, err := thread.GetMember(mb.Id)
 	if err != nil || !member.AllowWrite {

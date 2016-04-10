@@ -73,7 +73,7 @@ func (mc MessageController) PostMessage(w http.ResponseWriter, r *http.Request, 
 	}
 
 	thread := datastore.Thread{
-		Id: message.ThreadId,
+		Record: datastore.Rec(message.ThreadId),
 	}
 	userMember, err := thread.GetMember(mb.Id)
 	if err != nil || !userMember.AllowWrite {

@@ -58,7 +58,7 @@ func (m *Message) Insert() error {
 	m.RequireId()
 	m.CreatedAt = time.Now()
 	tx := PostgresDb.MustBegin()
-	sequenceName := (&Thread{Id: m.ThreadId}).SequenceName()
+	sequenceName := (&Thread{Record: Rec(m.ThreadId)}).SequenceName()
 	query := fmt.Sprintf(`
 	insert into messages 
 		(id, thread_id, sender_mailbox_id, createdat, updatedat, expiresat, topic, body, labels, payload, index)
