@@ -158,6 +158,14 @@ func (m *ThreadMember) Remove() error {
 	return err
 }
 
+func (t Thread) PermissionThreadId() string {
+	return t.Id
+}
+
+func (m ThreadMember) PermissionThreadId() string {
+	return m.ThreadId
+}
+
 // Function RequireId generates a UUID if the Id field is blank
 // It returns the Id field, guaranteed to not be blank
 func (t *Thread) RequireId() string {

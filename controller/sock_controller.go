@@ -100,6 +100,7 @@ func (sc SockController) HandleReads(conn *websocket.Conn, responses chan interf
 
 func (sc SockController) HandleCreate(req SockRequest, responses chan interface{}) (err error) {
 	var dbo datastore.Recordable
+
 	switch req.Request["model"] {
 	case "mailbox":
 		dbo = &datastore.Mailbox{}
@@ -128,6 +129,11 @@ func (sc SockController) HandleCreate(req SockRequest, responses chan interface{
 	}
 
 	if err = req.Conn.ReadJSON(&dbo); err != nil {
+		return
+	}
+
+	if !req.Client.CanWrite(dbo.PermissionThreadId()) {
+		responses <- map[string]string{"error": "you do not have permission to create this object"}
 		return
 	}
 

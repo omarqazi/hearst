@@ -142,6 +142,10 @@ func (mb *Mailbox) CanRead(threadId string) bool {
 	return true
 }
 
+func (mb Mailbox) PermissionThreadId() string {
+	return "" // Permissions are unlimited
+}
+
 func (mb *Mailbox) CanWrite(threadId string) bool {
 	dbThread := Thread{Id: threadId}
 	member, err := dbThread.GetMember(mb.Id)

@@ -115,6 +115,10 @@ func (m *Message) Delete() error {
 	return err
 }
 
+func (m Message) PermissionThreadId() string {
+	return m.ThreadId
+}
+
 func (m *Message) RequireId() string {
 	if m.Id == "" {
 		m.GenerateUUID()

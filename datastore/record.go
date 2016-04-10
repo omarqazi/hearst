@@ -12,6 +12,7 @@ type Record struct {
 
 type Recordable interface {
 	Insert() error
+	PermissionThreadId() string // A thread id used to control permissions for the object
 }
 
 func Rec(uuid string) (r Record) {
