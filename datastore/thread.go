@@ -21,19 +21,11 @@ type ThreadMember struct {
 	AllowNotification bool   `db:"allow_notification"`
 }
 
-func GetThread(uuid string) (Thread, error) {
-	tx := []Thread{}
-	db := PostgresDb.Unsafe()
-	err := db.Select(&tx, "select * from threads where id = $1 limit 1", uuid)
-	if err != nil {
-		err = db.Select(&tx, "select * from threads where identifier = $1 limit 1", uuid)
-	}
-
-	if len(tx) == 0 {
-		return Thread{}, errors.New("No thread found with that UUID")
-	}
-
-	return tx[0], err
+func GetThread(uuid string) (t Thread, err error) {
+	t.Record = Rec(uuid)
+	t.Identifier = uuid
+	err = t.Load()
+	return
 }
 
 func (t *Thread) Insert() error {
@@ -48,6 +40,26 @@ func (t *Thread) Insert() error {
 	err := tx.Commit()
 	Stream.AnnounceEvent("thread-insert-"+t.Id, t)
 	return err
+}
+
+func (t *Thread) Load() error {
+	tx := []Thread{}
+	db := PostgresDb.Unsafe()
+	err := db.Select(&tx, "select * from threads where id = $1 limit 1", t.Record.Id)
+	if err != nil {
+		err = db.Select(&tx, "select * from threads where identifier = $1 limit 1", t.Identifier)
+	}
+
+	if len(tx) == 0 {
+		return errors.New("No thread found with that UUID")
+	}
+
+	tdb := tx[0]
+	t.Record = tdb.Record
+	t.Domain = tdb.Domain
+	t.Identifier = tdb.Identifier
+	t.Subject = tdb.Subject
+	return nil
 }
 
 func (t *Thread) SequenceName() (sname string) {
