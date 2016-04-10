@@ -38,17 +38,10 @@ func NewMailboxWithKey() (Mailbox, *rsa.PrivateKey, error) {
 
 // Function GetMailbox retrieves a Mailbox
 // given a UUID. Returns mailbox and error
-func GetMailbox(uuid string) (Mailbox, error) {
-	mbx := []Mailbox{}
-	db := PostgresDb.Unsafe()
-	err := db.Select(&mbx, "select * from mailboxes where id = $1", uuid)
-	if err != nil {
-		return Mailbox{}, err
-	} else if len(mbx) > 0 {
-		return mbx[0], nil
-	}
-
-	return Mailbox{}, errors.New("No mailbox found with that UUID")
+func GetMailbox(uuid string) (mb Mailbox, err error) {
+	mb.Record = Rec(uuid)
+	err = mb.Load()
+	return
 }
 
 // Function GenerateNewKey generates a new private key and sets the mailboxes
@@ -91,6 +84,24 @@ func (mb *Mailbox) Insert() error {
 	err := tx.Commit()
 	Stream.AnnounceEvent("mailbox-insert-"+mb.Id, mb)
 	return err
+}
+
+func (mb *Mailbox) Load() error {
+	mbx := []Mailbox{}
+	db := PostgresDb.Unsafe()
+	err := db.Select(&mbx, "select * from mailboxes where id = $1", mb.Record.Id)
+	if err != nil {
+		return err
+	} else if len(mbx) > 0 {
+		mdb := mbx[0]
+		mb.ConnectedAt = mdb.ConnectedAt
+		mb.PublicKey = mdb.PublicKey
+		mb.DeviceId = mdb.DeviceId
+		mb.Record = mdb.Record
+		return nil
+	}
+
+	return errors.New("No mailbox found with that UUID")
 }
 
 func (mb *Mailbox) Update() (err error) {
