@@ -17,7 +17,7 @@ type Thread struct {
 }
 
 type ThreadMember struct {
-	ThreadId          string `db:"thread_id" json:"-"`
+	ThreadId          string `db:"thread_id"`
 	MailboxId         string `db:"mailbox_id"`
 	AllowRead         bool   `db:"allow_read"`
 	AllowWrite        bool   `db:"allow_write"`
@@ -106,7 +106,6 @@ func (t *Thread) GetAllMembers() ([]ThreadMember, error) {
 }
 
 func (t *Thread) AddMember(m *ThreadMember) error {
-	t.RequireId()
 	m.ThreadId = t.Id
 	if m.MailboxId == "" {
 		return errors.New("Invalid mailbox ID for new member")
@@ -121,6 +120,19 @@ func (t *Thread) AddMember(m *ThreadMember) error {
 	err := tx.Commit()
 	Stream.AnnounceEvent("threadmember-insert-"+t.Id, m)
 	return err
+}
+
+func (m *ThreadMember) Insert() (err error) {
+	if m.ThreadId == "" {
+		return errors.New("No thread ID in new thread member")
+	}
+
+	t := Thread{Id: m.ThreadId}
+	if err = t.AddMember(m); err != nil {
+		return
+	}
+
+	return
 }
 
 func (m *ThreadMember) UpdatePermissions() error {

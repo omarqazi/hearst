@@ -105,6 +105,7 @@ func (sc SockController) HandleCreate(req SockRequest, responses chan interface{
 		dbo = &datastore.Mailbox{}
 	case "thread":
 		thread := datastore.Thread{}
+		thread.RequireId()
 		dbo = &thread
 		adminMember := &datastore.ThreadMember{
 			ThreadId:          thread.Id,
@@ -121,7 +122,7 @@ func (sc SockController) HandleCreate(req SockRequest, responses chan interface{
 	case "message":
 		dbo = &datastore.Message{}
 	case "threadmember":
-		dbo = &datastore.Thread{}
+		dbo = &datastore.ThreadMember{}
 	default:
 		return errors.New("Error during create: invalid model type")
 	}
