@@ -132,17 +132,19 @@ func (sc SockController) HandleCreate(req SockRequest, responses chan interface{
 		return
 	}
 
-	if !req.Client.CanWrite(dbo.PermissionThreadId()) {
-		responses <- map[string]string{"error": "you do not have permission to create this object"}
-		return
-	}
+	go func() {
+		if !req.Client.CanWrite(dbo.PermissionThreadId()) {
+			responses <- map[string]string{"error": "you do not have permission to create this object"}
+			return
+		}
 
-	if insertErr := dbo.Insert(); insertErr != nil {
-		responses <- map[string]string{"error": "could not create object"}
-		return
-	}
+		if insertErr := dbo.Insert(); insertErr != nil {
+			responses <- map[string]string{"error": "could not create object"}
+			return
+		}
 
-	responses <- dbo
+		responses <- dbo
+	}()
 
 	return
 }
@@ -163,16 +165,19 @@ func (sc SockController) HandleRead(req SockRequest, responses chan interface{})
 		return errors.New("Error during read: invalid model type")
 	}
 
-	if loadErr := dbo.Load(); loadErr != nil {
-		responses <- map[string]string{"error": "unable to load object from datastore"}
-		return
-	}
+	go func() {
+		if loadErr := dbo.Load(); loadErr != nil {
+			responses <- map[string]string{"error": "unable to load object from datastore"}
+			return
+		}
 
-	if req.Client.CanRead(dbo.PermissionThreadId()) {
-		responses <- dbo
-	} else {
-		responses <- map[string]string{"error": "client not authorized to read this object"}
-	}
+		if req.Client.CanRead(dbo.PermissionThreadId()) {
+			responses <- dbo
+		} else {
+			responses <- map[string]string{"error": "client not authorized to read this object"}
+		}
+	}()
+
 	return
 }
 
@@ -194,16 +199,18 @@ func (sc SockController) HandleUpdate(req SockRequest, responses chan interface{
 		return
 	}
 
-	if req.Client.CanWrite(dbo.PermissionThreadId()) {
-		if updateErr := dbo.Update(); updateErr != nil {
-			responses <- map[string]string{"error": "could not update object"}
-			return
+	go func() {
+		if req.Client.CanWrite(dbo.PermissionThreadId()) {
+			if updateErr := dbo.Update(); updateErr != nil {
+				responses <- map[string]string{"error": "could not update object"}
+				return
+			}
 		}
-	}
 
-	if loadErr := dbo.Load(); loadErr != nil {
-		responses <- dbo
-	}
+		if loadErr := dbo.Load(); loadErr == nil {
+			responses <- dbo
+		}
+	}()
 
 	return
 }
