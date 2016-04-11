@@ -242,7 +242,25 @@ func (sc SockController) HandleListThread(req SockRequest, responses chan interf
 }
 
 func (sc SockController) HandleListThreadMember(req SockRequest, responses chan interface{}) (err error) {
-	return nil
+	go func() {
+		threadId, hasThreadId := req.Request["thread_id"]
+		mailboxId, hasMailboxId := req.Request["mailbox_id"]
+
+		if hasThreadId {
+			thread := datastore.Thread{Record: datastore.Rec(threadId)}
+			members, err := thread.GetAllMembers()
+			if err != nil {
+				responses <- map[string]string{"error": "unable to get members for thread", "thread_id": threadId}
+			}
+			responses <- members
+		} else if hasMailboxId {
+			responses <- mailboxId
+		} else {
+			responses <- map[string]string{"error": "neither thread_id nor mailbox_id required"}
+		}
+	}()
+
+	return
 }
 
 func (sc SockController) HandleUpdate(req SockRequest, responses chan interface{}) (err error) {
