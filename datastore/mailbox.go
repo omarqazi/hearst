@@ -143,6 +143,12 @@ func (mb *Mailbox) Delete() error {
 	return err
 }
 
+func (mb *Mailbox) GetAllThreads() ([]ThreadMember, error) {
+	members := []ThreadMember{}
+	err := PostgresDb.Select(&members, "select * from thread_members where mailbox_id = $1", mb.Id)
+	return members, err
+}
+
 func (mb Mailbox) PermissionThreadId() string {
 	return "" // Permissions are unlimited
 }
