@@ -11,9 +11,10 @@ type Record struct {
 }
 
 type Recordable interface {
+	Load() error
 	Insert() error
 	Update() error
-	Load() error
+	Delete() error
 	PermissionThreadId() string // A thread id used to control permissions for the object
 }
 

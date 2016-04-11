@@ -188,6 +188,11 @@ func (m *ThreadMember) Remove() error {
 	return err
 }
 
+func (m *ThreadMember) Delete() (err error) {
+	err = m.Remove()
+	return
+}
+
 func (t Thread) PermissionThreadId() string {
 	return t.Id
 }

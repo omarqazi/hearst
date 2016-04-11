@@ -86,7 +86,7 @@ func (sc SockController) HandleReads(conn *websocket.Conn, responses chan interf
 		case "update":
 			err = sc.HandleUpdate(req, responses)
 		case "delete":
-			responses <- map[string]string{"ye": "deleting"}
+			err = sc.HandleDelete(req, responses)
 		default:
 			responses <- map[string]string{"error": "invalid action"}
 		}
@@ -209,6 +209,37 @@ func (sc SockController) HandleUpdate(req SockRequest, responses chan interface{
 
 		if loadErr := dbo.Load(); loadErr == nil {
 			responses <- dbo
+		}
+	}()
+
+	return
+}
+
+func (sc SockController) HandleDelete(req SockRequest, responses chan interface{}) (err error) {
+	var dbo datastore.Recordable
+
+	switch req.Request["model"] {
+	case "mailbox":
+		dbo = &datastore.Mailbox{Record: datastore.Rec(req.Request["id"])}
+	case "thread":
+		dbo = &datastore.Thread{Record: datastore.Rec(req.Request["id"])}
+	case "message":
+		dbo = &datastore.Message{Id: req.Request["id"]}
+	case "threadmember":
+		dbo = &datastore.ThreadMember{MailboxId: req.Request["mailbox_id"], ThreadId: req.Request["thread_id"]}
+	default:
+		return errors.New("Error during read: invalid model type")
+	}
+
+	go func() {
+		if req.Client.CanWrite(dbo.PermissionThreadId()) {
+			if deleteErr := dbo.Delete(); deleteErr != nil {
+				responses <- map[string]string{"error": "could not delete object"}
+			}
+			responses <- dbo
+			return
+		} else {
+			responses <- map[string]string{"error": "not authorized to delete object"}
 		}
 	}()
 
