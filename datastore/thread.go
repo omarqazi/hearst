@@ -172,6 +172,11 @@ func (m *ThreadMember) UpdatePermissions() error {
 	return err
 }
 
+func (m *ThreadMember) Update() (err error) {
+	err = m.UpdatePermissions()
+	return
+}
+
 func (m *ThreadMember) Remove() error {
 	tx := PostgresDb.MustBegin()
 	tx.NamedExec(`

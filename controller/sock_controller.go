@@ -82,9 +82,9 @@ func (sc SockController) HandleReads(conn *websocket.Conn, responses chan interf
 		case "create":
 			err = sc.HandleCreate(req, responses)
 		case "read":
-			responses <- map[string]string{"ye": "reading"}
+			err = sc.HandleRead(req, responses)
 		case "update":
-			responses <- map[string]string{"ye": "updating"}
+			err = sc.HandleUpdate(req, responses)
 		case "delete":
 			responses <- map[string]string{"ye": "deleting"}
 		default:
@@ -143,6 +143,67 @@ func (sc SockController) HandleCreate(req SockRequest, responses chan interface{
 	}
 
 	responses <- dbo
+
+	return
+}
+
+func (sc SockController) HandleRead(req SockRequest, responses chan interface{}) (err error) {
+	var dbo datastore.Recordable
+
+	switch req.Request["model"] {
+	case "mailbox":
+		dbo = &datastore.Mailbox{Record: datastore.Rec(req.Request["id"])}
+	case "thread":
+		dbo = &datastore.Thread{Record: datastore.Rec(req.Request["id"])}
+	case "message":
+		dbo = &datastore.Message{Id: req.Request["id"]}
+	case "threadmember":
+		dbo = &datastore.ThreadMember{MailboxId: req.Request["mailbox_id"], ThreadId: req.Request["thread_id"]}
+	default:
+		return errors.New("Error during read: invalid model type")
+	}
+
+	if loadErr := dbo.Load(); loadErr != nil {
+		responses <- map[string]string{"error": "unable to load object from datastore"}
+		return
+	}
+
+	if req.Client.CanRead(dbo.PermissionThreadId()) {
+		responses <- dbo
+	} else {
+		responses <- map[string]string{"error": "client not authorized to read this object"}
+	}
+	return
+}
+
+func (sc SockController) HandleUpdate(req SockRequest, responses chan interface{}) (err error) {
+	var dbo datastore.Recordable
+
+	switch req.Request["model"] {
+	case "mailbox":
+		dbo = &datastore.Mailbox{}
+	case "thread":
+		dbo = &datastore.Thread{}
+	case "message":
+		dbo = &datastore.Message{}
+	case "threadmember":
+		dbo = &datastore.ThreadMember{}
+	}
+
+	if err = req.Conn.ReadJSON(&dbo); err != nil {
+		return
+	}
+
+	if req.Client.CanWrite(dbo.PermissionThreadId()) {
+		if updateErr := dbo.Update(); updateErr != nil {
+			responses <- map[string]string{"error": "could not update object"}
+			return
+		}
+	}
+
+	if loadErr := dbo.Load(); loadErr != nil {
+		responses <- dbo
+	}
 
 	return
 }
