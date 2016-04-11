@@ -7,6 +7,7 @@ import (
 	"github.com/omarqazi/hearst/auth"
 	"github.com/omarqazi/hearst/datastore"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -87,6 +88,8 @@ func (sc SockController) HandleReads(conn *websocket.Conn, responses chan interf
 			err = sc.HandleUpdate(req, responses)
 		case "delete":
 			err = sc.HandleDelete(req, responses)
+		case "list":
+			err = sc.HandleList(req, responses)
 		default:
 			responses <- map[string]string{"error": "invalid action"}
 		}
@@ -179,6 +182,67 @@ func (sc SockController) HandleRead(req SockRequest, responses chan interface{})
 	}()
 
 	return
+}
+
+func (sc SockController) HandleList(req SockRequest, responses chan interface{}) (err error) {
+	switch req.Request["model"] {
+	case "thread":
+		err = sc.HandleListThread(req, responses)
+	case "threadmember":
+		err = sc.HandleListThreadMember(req, responses)
+	}
+	return
+}
+
+func (sc SockController) HandleListThread(req SockRequest, responses chan interface{}) (err error) {
+	go func() {
+		threadId := req.Request["id"]
+
+		thread, err := datastore.GetThread(threadId)
+		if err != nil {
+			responses <- map[string]string{"error": "thread not found"}
+			return
+		}
+
+		if !req.Client.CanRead(thread.Id) {
+			responses <- map[string]string{"error": "not authorized to list thread", "thread_id": threadId}
+			return
+		}
+
+		limitString, ok := req.Request["limit"]
+		limit, err := strconv.Atoi(limitString)
+		if !ok || err != nil {
+			limit = 50
+		}
+
+		topic := req.Request["topic"]
+
+		messages, err := thread.RecentMessagesWithTopic(topic, limit)
+		if err != nil {
+			responses <- map[string]string{"error": "error retrieving recent messages", "thread_id": thread.Id}
+			return
+		}
+
+		responses <- messages
+
+		shouldFollow := req.Request["follow"] == "true"
+		var changeEvents chan datastore.Event
+		if shouldFollow {
+			changeEvents = datastore.Stream.EventChannel("message-insert-" + thread.Id)
+		}
+
+		if shouldFollow && req.Client.CanFollow(thread.Id) {
+			for evt := range changeEvents {
+				responses <- evt
+			}
+		}
+	}()
+
+	return
+}
+
+func (sc SockController) HandleListThreadMember(req SockRequest, responses chan interface{}) (err error) {
+	return nil
 }
 
 func (sc SockController) HandleUpdate(req SockRequest, responses chan interface{}) (err error) {
