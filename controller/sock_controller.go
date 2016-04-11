@@ -233,7 +233,7 @@ func (sc SockController) HandleListThread(req SockRequest, responses chan interf
 
 		if shouldFollow && req.Client.CanFollow(thread.Id) {
 			for evt := range changeEvents {
-				responses <- evt
+				responses <- []datastore.Event{evt}
 			}
 		}
 	}()
