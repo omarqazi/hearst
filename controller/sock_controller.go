@@ -109,21 +109,7 @@ func (sc SockController) HandleCreate(req SockRequest, responses chan interface{
 	case "mailbox":
 		dbo = &datastore.Mailbox{}
 	case "thread":
-		thread := datastore.Thread{}
-		thread.RequireId()
-		dbo = &thread
-		adminMember := &datastore.ThreadMember{
-			ThreadId:          thread.Id,
-			MailboxId:         req.Client.Id,
-			AllowRead:         true,
-			AllowWrite:        true,
-			AllowNotification: true,
-		}
-
-		if memberErr := thread.AddMember(adminMember); memberErr != nil {
-			responses <- map[string]string{"error": "error adding thread member to new thread", "rid": rid}
-			return
-		}
+		dbo = &datastore.Thread{}
 	case "message":
 		dbo = &datastore.Message{}
 	case "threadmember":
@@ -145,6 +131,22 @@ func (sc SockController) HandleCreate(req SockRequest, responses chan interface{
 		if insertErr := dbo.Insert(); insertErr != nil {
 			responses <- map[string]string{"error": "could not create object", "rid": rid}
 			return
+		}
+
+		// If we're creating a thread we need to give ourselves permissions over it
+		if req.Request["model"] == "thread" {
+			adminMember := &datastore.ThreadMember{
+				ThreadId:          dbo.PermissionThreadId(),
+				MailboxId:         req.Client.Id,
+				AllowRead:         true,
+				AllowWrite:        true,
+				AllowNotification: true,
+			}
+
+			if memAddErr := adminMember.Insert(); memAddErr != nil {
+				responses <- map[string]string{"error": "error adding thread member to new thread", "rid": rid}
+				return
+			}
 		}
 
 		if len(rid) > 0 {
