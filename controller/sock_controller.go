@@ -133,6 +133,10 @@ func (sc SockController) HandleCreate(req SockRequest, responses chan interface{
 			return
 		}
 
+		if loadErr := dbo.Load(); loadErr != nil {
+			responses <- map[string]string{"error": "could not load object after insert", "rid": rid}
+		}
+
 		// If we're creating a thread we need to give ourselves permissions over it
 		if req.Request["model"] == "thread" {
 			adminMember := &datastore.ThreadMember{
