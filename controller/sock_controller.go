@@ -103,6 +103,7 @@ func (sc SockController) HandleReads(conn *websocket.Conn, responses chan interf
 
 func (sc SockController) HandleCreate(req SockRequest, responses chan interface{}) (err error) {
 	var dbo datastore.Recordable
+	rid := req.Request["rid"]
 
 	switch req.Request["model"] {
 	case "mailbox":
@@ -120,7 +121,7 @@ func (sc SockController) HandleCreate(req SockRequest, responses chan interface{
 		}
 
 		if memberErr := thread.AddMember(adminMember); memberErr != nil {
-			responses <- map[string]string{"error": "error adding thread member to new thread"}
+			responses <- map[string]string{"error": "error adding thread member to new thread", "rid": rid}
 			return
 		}
 	case "message":
@@ -137,16 +138,23 @@ func (sc SockController) HandleCreate(req SockRequest, responses chan interface{
 
 	go func() {
 		if !req.Client.CanWrite(dbo.PermissionThreadId()) {
-			responses <- map[string]string{"error": "you do not have permission to create this object"}
+			responses <- map[string]string{"error": "you do not have permission to create this object", "rid": rid}
 			return
 		}
 
 		if insertErr := dbo.Insert(); insertErr != nil {
-			responses <- map[string]string{"error": "could not create object"}
+			responses <- map[string]string{"error": "could not create object", "rid": rid}
 			return
 		}
 
-		responses <- dbo
+		if len(rid) > 0 {
+			responses <- map[string]interface{}{
+				"rid":     rid,
+				"payload": dbo,
+			}
+		} else {
+			responses <- dbo
+		}
 	}()
 
 	return

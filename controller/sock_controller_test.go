@@ -9,6 +9,12 @@ import (
 
 var sc = http.StripPrefix("/sock/", SockController{})
 
+func init() {
+	go func() {
+		http.ListenAndServe(":6943", sc)
+	}()
+}
+
 func TestSockNormalHTTP(t *testing.T) {
 	mailbox, clientKey, err := datastore.NewMailboxWithKey()
 	if err != nil {
@@ -28,4 +34,8 @@ func TestSockNormalHTTP(t *testing.T) {
 		t.Error("Expected 400 response code but got", w.Code)
 		return
 	}
+}
+
+func TestAuth(t *testing.T) {
+
 }
