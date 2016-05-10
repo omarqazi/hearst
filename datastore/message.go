@@ -49,7 +49,7 @@ func (t *Thread) MessagesSince(lastSequence int64, limit int, topicFilter string
 	}
 
 	err = PostgresDb.Select(&mx, `
-	select * from (select * from messages where thread_id = $1 and index > $2 and topic LIKE $3 order by index desc limit $4) as sub order by index asc;
+	select * from messages where thread_id = $1 and index > $2 and topic LIKE $3 order by index asc limit $4;
 	`, t.Id, lastSequence, topicFilter, limit)
 	return
 }

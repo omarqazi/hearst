@@ -129,7 +129,7 @@ func (sc SockController) HandleCreate(req SockRequest, responses chan interface{
 		}
 
 		if insertErr := dbo.Insert(); insertErr != nil {
-			responses <- map[string]string{"error": "could not create object", "rid": rid}
+			responses <- map[string]string{"error": insertErr.Error(), "rid": rid}
 			return
 		}
 
