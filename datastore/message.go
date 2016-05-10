@@ -42,6 +42,18 @@ func (t *Thread) RecentMessages(limit int) (mx []Message, err error) {
 	return
 }
 
+func (t *Thread) MessagesSince(lastSequence int64, limit int, topicFilter string) (mx []Message, err error) {
+	mx = []Message{}
+	if topicFilter == "" {
+		topicFilter = "%"
+	}
+
+	err = PostgresDb.Select(&mx, `
+	select * from (select * from messages where thread_id = $1 and index > $2 and topic LIKE $3 order by index desc limit $4) as sub order by index asc;
+	`, t.Id, lastSequence, topicFilter, limit)
+	return
+}
+
 func GetMessage(uuid string) (m Message, err error) {
 	m.Id = uuid
 	err = m.Load()

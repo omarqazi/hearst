@@ -91,27 +91,31 @@ func TestUpdateMessage(t *testing.T) {
 	}
 }
 
-func setupTestMessages(totalMessages int, t *testing.T) {
+func prepareToSetupTestMessages(t *testing.T) (Mailbox, Thread) {
 	TestMailboxInsert(t)
 	mb, err := GetMailbox(testMailboxId)
 	if err != nil {
 		t.Error("Error getting mailbox for message insert:", err)
-		return
+		return mb, Thread{}
 	}
 
 	TestInsertThread(t)
 	tr, err := GetThread(testThreadId)
 	if err != nil {
 		t.Error("Error getting thread for message insert:", err)
-		return
+		return mb, tr
 	}
 
+	return mb, tr
+}
+
+func createSampleMessages(tr Thread, mb Mailbox, topic string, body string, totalMessages int, t *testing.T) {
 	for i := 0; i < totalMessages; i++ {
 		m := Message{
 			ThreadId:        tr.Id,
 			SenderMailboxId: mb.Id,
-			Topic:           testMessageTopic,
-			Body:            testMessageBody,
+			Topic:           topic,
+			Body:            body,
 			Labels:          types.JSONText("{}"),
 			Payload:         types.JSONText("{}"),
 		}
@@ -124,6 +128,16 @@ func setupTestMessages(totalMessages int, t *testing.T) {
 			return
 		}
 	}
+}
+func setupTestMessages(totalMessages int, t *testing.T) {
+	mb, tr := prepareToSetupTestMessages(t)
+	createSampleMessages(tr, mb, testMessageTopic, testMessageBody, totalMessages, t)
+}
+
+func setupDualTopicTestMessages(t *testing.T) {
+	mb, tr := prepareToSetupTestMessages(t)
+	createSampleMessages(tr, mb, "chat-message", testMessageBody, 60, t)
+	createSampleMessages(tr, mb, "location-update", testMessageBody, 40, t)
 }
 
 func TestRecentMessages(t *testing.T) {
@@ -147,13 +161,10 @@ func TestRecentMessages(t *testing.T) {
 	CleanUpMessages(t)
 }
 
-func TestaRecentMessagesWithTopic(t *testing.T) {
-	setupTestMessages(60, t)
+func TestRecentMessagesWithTopic(t *testing.T) {
+	setupDualTopicTestMessages(t)
+	originalTopic := "chat-message"
 	newTopic := "location-update"
-	originalTopic := testMessageTopic
-	testMessageTopic = newTopic
-	setupTestMessages(40, t)
-	testMessageTopic = originalTopic
 
 	tr, err := GetThread(testThreadId)
 	if err != nil {
@@ -177,6 +188,65 @@ func TestaRecentMessagesWithTopic(t *testing.T) {
 
 	if len(messages) != 40 {
 		t.Fatal("Expected 40 messages with topic", originalTopic, "but got", len(messages))
+	}
+
+	CleanUpMessages(t)
+}
+
+func TestMessagesSince(t *testing.T) {
+	setupDualTopicTestMessages(t)
+	originalTopic := "chat-message"
+	newTopic := "location-update"
+
+	tr, err := GetThread(testThreadId)
+	if err != nil {
+		t.Error("Error getting thread for message insert:", err)
+		return
+	}
+
+	messages, err := tr.MessagesSince(0, 1000, originalTopic)
+	if err != nil {
+		t.Fatal("Error getting recent messages with topic:", err)
+	}
+
+	if len(messages) != 60 {
+		t.Fatal("Expected 60 messages with topic", originalTopic, "but got", len(messages))
+	}
+
+	messages, err = tr.MessagesSince(0, 1000, newTopic)
+	if err != nil {
+		t.Fatal("Error getting recent messages with topic:", err)
+	}
+
+	if len(messages) != 40 {
+		t.Fatal("Expected 40 messages with topic", originalTopic, "but got", len(messages))
+	}
+
+	messages, err = tr.MessagesSince(70, 1000, originalTopic)
+	if err != nil {
+		t.Fatal("Error getting recent messages with topic:", err)
+	}
+
+	if len(messages) >= 60 {
+		t.Fatal("Expected less than 60 messages after providing sequence number but found", len(messages))
+	}
+
+	messages, err = tr.MessagesSince(70, 1000, newTopic)
+	if err != nil {
+		t.Fatal("Error getting messages since with topic:", err)
+	}
+
+	if len(messages) >= 40 {
+		t.Fatal("Expected less than 40 messages after providing sequence number but found", len(messages))
+	}
+
+	messages, err = tr.MessagesSince(70, 1000, "")
+	if err != nil {
+		t.Fatal("Error getting messages since without topic:", err)
+	}
+
+	if len(messages) != 30 {
+		t.Fatal("Error: Expected exactly 30 messages but found", len(messages))
 	}
 
 	CleanUpMessages(t)
