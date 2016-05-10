@@ -211,15 +211,16 @@ func (sc SockController) HandleList(req SockRequest, responses chan interface{})
 func (sc SockController) HandleListThread(req SockRequest, responses chan interface{}) (err error) {
 	go func() {
 		threadId := req.Request["id"]
+		rid := req.Request["rid"]
 
 		thread, err := datastore.GetThread(threadId)
 		if err != nil {
-			responses <- map[string]string{"error": "thread not found"}
+			responses <- map[string]string{"error": "thread not found", "rid": rid}
 			return
 		}
 
 		if !req.Client.CanRead(thread.Id) {
-			responses <- map[string]string{"error": "not authorized to list thread", "thread_id": threadId}
+			responses <- map[string]string{"error": "not authorized to list thread", "thread_id": threadId, "rid": rid}
 			return
 		}
 
@@ -239,11 +240,18 @@ func (sc SockController) HandleListThread(req SockRequest, responses chan interf
 
 		messages, err := thread.MessagesSince(lsn, limit, topic)
 		if err != nil {
-			responses <- map[string]string{"error": "error retrieving recent messages", "thread_id": thread.Id}
+			responses <- map[string]string{"error": "error retrieving recent messages", "thread_id": thread.Id, "rid": rid}
 			return
 		}
 
-		responses <- messages
+		if len(rid) > 0 {
+			responses <- map[string]interface{}{
+				"rid":     rid,
+				"payload": messages,
+			}
+		} else {
+			responses <- messages
+		}
 
 		shouldFollow := req.Request["follow"] == "true"
 		var changeEvents chan datastore.Event
@@ -253,7 +261,11 @@ func (sc SockController) HandleListThread(req SockRequest, responses chan interf
 
 		if shouldFollow && req.Client.CanFollow(thread.Id) {
 			for evt := range changeEvents {
-				responses <- []datastore.Event{evt}
+				if len(rid) > 0 {
+					responses <- map[string]interface{}{"rid": rid, "payload": []datastore.Event{evt}}
+				} else {
+					responses <- []datastore.Event{evt}
+				}
 			}
 		}
 	}()
