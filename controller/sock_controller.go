@@ -229,9 +229,15 @@ func (sc SockController) HandleListThread(req SockRequest, responses chan interf
 			limit = 50
 		}
 
+		lsnString, ok := req.Request["lastsequence"]
+		lsn, err := strconv.ParseInt(lsnString, 10, 64)
+		if !ok || err != nil {
+			lsn = 0
+		}
+
 		topic := req.Request["topic"]
 
-		messages, err := thread.RecentMessagesWithTopic(topic, limit)
+		messages, err := thread.MessagesSince(lsn, limit, topic)
 		if err != nil {
 			responses <- map[string]string{"error": "error retrieving recent messages", "thread_id": thread.Id}
 			return
