@@ -86,6 +86,12 @@ func (m *Message) Insert() error {
 
 	err = tx.Commit()
 	Stream.AnnounceEvent("message-insert-"+m.ThreadId, m)
+	if members, exx := thread.MembersToNotify(); exx == nil {
+		for _, member := range members {
+			Stream.AnnounceEvent("user-notification-"+member.MailboxId, m)
+		}
+	}
+
 	return err
 }
 
