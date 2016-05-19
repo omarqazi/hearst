@@ -63,8 +63,9 @@ func GetMessage(uuid string) (m Message, err error) {
 func (m *Message) Insert() error {
 	m.RequireId()
 	m.CreatedAt = time.Now()
+	thread := &Thread{Record: Rec(m.ThreadId)}
 	tx := PostgresDb.MustBegin()
-	sequenceName := (&Thread{Record: Rec(m.ThreadId)}).SequenceName()
+	sequenceName := thread.SequenceName()
 	query := fmt.Sprintf(`
 	insert into messages 
 		(id, thread_id, sender_mailbox_id, createdat, updatedat, expiresat, topic, body, labels, payload, index)
