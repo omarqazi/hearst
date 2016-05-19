@@ -114,6 +114,12 @@ func (t *Thread) GetAllMembers() ([]ThreadMember, error) {
 	return members, err
 }
 
+func (t *Thread) MembersToNotify() ([]ThreadMember, error) {
+	members := []ThreadMember{}
+	err := PostgresDb.Select(&members, "select * from thread_members where thread_id = $1 and allow_notification = true;", t.Id)
+	return members, err
+}
+
 func (t *Thread) AddMember(m *ThreadMember) error {
 	m.ThreadId = t.Id
 	if m.MailboxId == "" {

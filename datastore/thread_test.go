@@ -157,6 +157,75 @@ func TestDeleteThread(t *testing.T) {
 	}
 }
 
+func TestGetNotificationMembers(t *testing.T) {
+	TestInsertThread(t)
+	defer CleanUpThread(t)
+
+	tr, err := GetThread(testThreadId)
+	if err != nil {
+		t.Fatal("Error getting thread for notification members:", err)
+	}
+
+	TestMailboxInsert(t)
+	if err != nil {
+		t.Fatal("Error getting mailbox on member add:", err)
+	}
+
+	mb, err := GetMailbox(testMailboxId)
+	if err != nil {
+		t.Fatal("Error getting mailbox on member add:", err)
+	}
+
+	member := ThreadMember{
+		MailboxId:         mb.Id,
+		AllowRead:         true,
+		AllowWrite:        false,
+		AllowNotification: false,
+	}
+
+	toNotify, err := tr.MembersToNotify()
+	if err != nil {
+		t.Fatal("Error getting members to notify:", err)
+	}
+
+	if len(toNotify) > 0 {
+		t.Fatal("Expected 0 members to notify but found", len(toNotify))
+	}
+
+	if err := tr.AddMember(&member); err != nil {
+		t.Fatal("Error adding non notification member to thread:", err)
+	}
+
+	toNotify, err = tr.MembersToNotify()
+	if err != nil {
+		t.Fatal("Error getting members to notify after adding member:", err)
+	}
+
+	if len(toNotify) > 0 {
+		t.Fatal("Expected no members to notify after adding non notification member but found", len(toNotify))
+	}
+
+	member.MailboxId = "07e28395-351a-4872-b8ad-ab62fcf969ff"
+	member.AllowNotification = true
+
+	if err := tr.AddMember(&member); err != nil {
+		t.Fatal("Error adding notification member:", err)
+	}
+
+	toNotify, err = tr.MembersToNotify()
+	if err != nil {
+		t.Fatal("Error getting members to notify:", err)
+	}
+
+	if len(toNotify) != 1 {
+		t.Fatal("Expected 1 member to notify but found", len(toNotify))
+	}
+
+	if toNotify[0].MailboxId != member.MailboxId {
+		t.Fatal("Expected mailbox ID of", member.MailboxId, "but got", toNotify[0].MailboxId)
+	}
+}
+
 func TestAddMember(t *testing.T) {
 	TestInsertThread(t)
 	defer CleanUpThread(t)
