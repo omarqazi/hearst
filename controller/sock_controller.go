@@ -55,6 +55,7 @@ func (sc SockController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 
 	go sc.HandleReads(conn, responses, r, &mb)
+	go sc.HandleNotifications(conn, responses, r, &mb)
 	sc.HandleWrites(conn, responses, time.Tick(pingTime), &mb)
 }
 
@@ -385,6 +386,17 @@ func (sc SockController) HandleWrites(conn *websocket.Conn, jsonWrites <-chan in
 	}
 
 	return
+}
+
+func (sc SockController) HandleNotifications(conn *websocket.Conn, responses chan interface{}, r *http.Request, mb *datastore.Mailbox) {
+	for evt := range datastore.Stream.EventChannel("user-notification-" + mb.Id) {
+		select {
+		case responses <- []datastore.Event{evt}:
+			// if the event goes through, keep going
+		default:
+			return // if the channel blocks, we're done
+		}
+	}
 }
 
 // Function IdentifyClient attempts to identify the user over a web socket connection
