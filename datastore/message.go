@@ -88,7 +88,7 @@ func (m *Message) Insert() error {
 	Stream.AnnounceEvent("message-insert-"+m.ThreadId, m)
 	if members, exx := thread.MembersToNotify(); exx == nil {
 		for _, member := range members {
-			Stream.AnnounceEvent("user-notification-"+member.MailboxId, m)
+			Stream.AnnounceEvent("message-notification-"+member.MailboxId, m)
 		}
 	}
 
