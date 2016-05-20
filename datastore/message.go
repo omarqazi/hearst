@@ -85,6 +85,7 @@ func (m *Message) Insert() error {
 	}
 
 	err = tx.Commit()
+	m.Load()
 	Stream.AnnounceEvent("message-insert-"+m.ThreadId, m)
 	if members, exx := thread.MembersToNotify(); exx == nil {
 		for _, member := range members {
