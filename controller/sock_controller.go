@@ -257,22 +257,6 @@ func (sc SockController) HandleListThread(req SockRequest, responses chan interf
 		} else {
 			responses <- messages
 		}
-
-		shouldFollow := req.Request["follow"] == "true"
-		var changeEvents chan datastore.Event
-		if shouldFollow {
-			changeEvents = datastore.Stream.EventChannel("message-insert-" + thread.Id)
-		}
-
-		if shouldFollow && req.Client.CanFollow(thread.Id) {
-			for evt := range changeEvents {
-				if len(rid) > 0 {
-					responses <- map[string]interface{}{"rid": rid, "payload": []datastore.Event{evt}}
-				} else {
-					responses <- []datastore.Event{evt}
-				}
-			}
-		}
 	}()
 
 	return
