@@ -22,6 +22,16 @@ type Message struct {
 	Index           int
 }
 
+// Get the latest N messages in the thread
+func (t *Thread) RecentMessages(limit int) (mx []Message, err error) {
+	mx = []Message{}
+	err = PostgresDb.Select(&mx, `
+		select * from (select * from messages where thread_id = $1 order by index desc limit $2) as sub order by index asc;
+		`, t.Id, limit)
+	return
+}
+
+// Get the latest N messages in the thread with topic matching (LIKE) the topicFilter
 func (t *Thread) RecentMessagesWithTopic(topicFilter string, limit int) (mx []Message, err error) {
 	mx = []Message{}
 	if topicFilter == "" {
@@ -34,14 +44,23 @@ func (t *Thread) RecentMessagesWithTopic(topicFilter string, limit int) (mx []Me
 	return
 }
 
-func (t *Thread) RecentMessages(limit int) (mx []Message, err error) {
+// Get the latest N messages in the thread with topic matching (LIKE) the topicFilter
+// Return only messages with an index greater than lastSequence so we don't send messages we already have
+func (t *Thread) RecentMessagesSince(lastSequence int64, limit int, topicFilter string) (mx []Message, err error) {
 	mx = []Message{}
+	if topicFilter == "" {
+		topicFilter = "%"
+	}
+
 	err = PostgresDb.Select(&mx, `
-		select * from (select * from messages where thread_id = $1 order by index desc limit $2) as sub order by index asc;
-		`, t.Id, limit)
+	select * from (
+		select * from messages where thread_id = $1 and topic LIKE $2 and index > $3 order by index desc limit $4
+	) as sub order by index asc;
+	`, t.Id, topicFilter, lastSequence, limit)
 	return
 }
 
+// Get the first N messages with index > lastSequence, topic LIKE topicFilter
 func (t *Thread) MessagesSince(lastSequence int64, limit int, topicFilter string) (mx []Message, err error) {
 	mx = []Message{}
 	if topicFilter == "" {
