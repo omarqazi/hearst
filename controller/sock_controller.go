@@ -123,6 +123,11 @@ func (sc SockController) HandleCreate(req SockRequest, responses chan interface{
 		return
 	}
 
+	switch dbo := dbo.(type) {
+	case *datastore.Message:
+		dbo.SenderMailboxId = req.Client.Id
+	}
+
 	go func() {
 		if !req.Client.CanWrite(dbo.PermissionThreadId()) {
 			responses <- map[string]string{"error": "you do not have permission to create this object", "rid": rid}
