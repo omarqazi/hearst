@@ -252,6 +252,65 @@ func TestMessagesSince(t *testing.T) {
 	CleanUpMessages(t)
 }
 
+func TestRecentMessagesSince(t *testing.T) {
+	setupDualTopicTestMessages(t)
+	originalTopic := "chat-message"
+	newTopic := "location-update"
+
+	tr, err := GetThread(testThreadId)
+	if err != nil {
+		t.Error("Error getting thread for message insert:", err)
+		return
+	}
+
+	messages, err := tr.RecentMessagesSince(0, 1000, originalTopic)
+	if err != nil {
+		t.Fatal("Error getting recent messages with topic:", err)
+	}
+
+	if len(messages) != 60 {
+		t.Fatal("Expected 60 messages with topic", originalTopic, "but got", len(messages))
+	}
+
+	messages, err = tr.RecentMessagesSince(0, 1000, newTopic)
+	if err != nil {
+		t.Fatal("Error getting recent messages with topic:", err)
+	}
+
+	if len(messages) != 40 {
+		t.Fatal("Expected 40 messages with topic", originalTopic, "but got", len(messages))
+	}
+
+	messages, err = tr.RecentMessagesSince(70, 1000, originalTopic)
+	if err != nil {
+		t.Fatal("Error getting recent messages with topic:", err)
+	}
+
+	if len(messages) >= 60 {
+		t.Fatal("Expected less than 60 messages after providing sequence number but found", len(messages))
+	}
+
+	messages, err = tr.RecentMessagesSince(70, 1000, newTopic)
+	if err != nil {
+		t.Fatal("Error getting messages since with topic:", err)
+	}
+
+	if len(messages) >= 40 {
+		t.Fatal("Expected less than 40 messages after providing sequence number but found", len(messages))
+	}
+
+	messages, err = tr.RecentMessagesSince(70, 1000, "")
+	if err != nil {
+		t.Fatal("Error getting messages since without topic:", err)
+	}
+
+	if len(messages) != 30 {
+		t.Fatal("Error: Expected exactly 30 messages but found", len(messages))
+	}
+
+	CleanUpMessages(t)
+}
+
 func TestDeleteMessage(t *testing.T) {
 	TestInsertMessage(t)
 	defer CleanUpMessages(t)
