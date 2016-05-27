@@ -346,3 +346,21 @@ func CleanUpMessages(t *testing.T) {
 	CleanUpThread(t)
 	CleanUpMailbox(t)
 }
+
+func TestUnquoteJson(t *testing.T) {
+	message := Message{
+		Body:    "hello-world",
+		Payload: types.JSONText("\"{}\""),
+		Labels:  types.JSONText("{}"),
+	}
+
+	message.UnquoteJSON()
+
+	if message.Payload[0] == '"' {
+		t.Error("Expected Payload to be unquoted but it was not")
+	}
+
+	if message.Labels[0] != '{' {
+		t.Error("Expected labels to be unchanged object but got", message.Labels[0])
+	}
+}

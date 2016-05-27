@@ -1,6 +1,7 @@
 package datastore
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/jmoiron/sqlx/types"
@@ -79,8 +80,33 @@ func GetMessage(uuid string) (m Message, err error) {
 	return
 }
 
+func (m *Message) UnquoteJSON() {
+	if newLabels, err := m.JSONStringToObject(m.Labels); err == nil {
+		m.Labels = newLabels
+	}
+	if newPayload, err := m.JSONStringToObject(m.Payload); err == nil {
+		m.Payload = newPayload
+	}
+}
+
+// If the JSON data has been encoded as a JSON string,
+// We need to parse the string as JSON to get the actual data
+func (m Message) JSONStringToObject(j []byte) ([]byte, error) {
+	if j[0] == '"' && j[len(j)-1] == '"' { // if json data is in string form
+		//get the contents of the string
+		var jsonData string
+		// parse and unescape it
+		err := json.Unmarshal(j, &jsonData)
+		// the value of that string is the *actual* json data
+		return []byte(jsonData), err
+	}
+	// if the data isn't in a string, do nothing
+	return j, nil
+}
+
 func (m *Message) Insert() error {
 	m.RequireId()
+	m.UnquoteJSON()
 	m.CreatedAt = time.Now()
 	thread := &Thread{Record: Rec(m.ThreadId)}
 	tx := PostgresDb.MustBegin()
@@ -142,6 +168,7 @@ func (m *Message) Update() error {
 	if m.Id == "" {
 		return m.Insert()
 	}
+	m.UnquoteJSON()
 
 	tx := PostgresDb.MustBegin()
 	_, err := tx.NamedExec(`
