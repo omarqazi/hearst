@@ -238,8 +238,12 @@ func (sc SockController) HandleListThread(req SockRequest, responses chan interf
 		}
 
 		topic := req.Request["topic"]
-
-		messages, err := thread.MessagesSince(lsn, limit, topic)
+		var messages []datastore.Message
+		if req.Request["choose"] == "latest" {
+			messages, err = thread.RecentMessagesSince(lsn, limit, topic)
+		} else {
+			messages, err = thread.MessagesSince(lsn, limit, topic)
+		}
 		if err != nil {
 			responses <- map[string]string{"error": "error retrieving recent messages", "thread_id": thread.Id, "rid": rid}
 			return
