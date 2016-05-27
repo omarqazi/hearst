@@ -382,6 +382,9 @@ func (sc SockController) HandleWrites(conn *websocket.Conn, jsonWrites <-chan in
 }
 
 func (sc SockController) HandleNotifications(conn *websocket.Conn, responses chan interface{}, r *http.Request, mb *datastore.Mailbox) {
+	defer func() {
+		recover()
+	}()
 	for evt := range datastore.Stream.EventChannel("message-notification-" + mb.Id) {
 		select {
 		case responses <- []datastore.Event{evt}:
