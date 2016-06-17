@@ -282,7 +282,7 @@ func (sc SockController) HandleListThreadMember(req SockRequest, responses chan 
 			}
 		} else if hasMailboxId {
 			mailbox := datastore.Mailbox{Record: datastore.Rec(mailboxId)}
-			members, err := mailbox.GetAllThreads()
+			members, err := mailbox.GetAllThreadMembers()
 			if err != nil {
 				responses <- map[string]string{"error": "unable to get threads for mailbox", "mailbox_id": mailboxId}
 			} else {
