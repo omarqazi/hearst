@@ -210,6 +210,8 @@ func (sc SockController) HandleList(req SockRequest, responses chan interface{})
 		err = sc.HandleListThread(req, responses)
 	case "threadmember":
 		err = sc.HandleListThreadMember(req, responses)
+	case "mailbox":
+		err = sc.HandleListMailbox(req, responses)
 	}
 	return
 }
@@ -291,6 +293,15 @@ func (sc SockController) HandleListThreadMember(req SockRequest, responses chan 
 		} else {
 			responses <- map[string]string{"error": "neither thread_id nor mailbox_id required"}
 		}
+	}()
+
+	return
+}
+
+func (sc SockController) HandleListMailbox(req SockRequest, responses chan interface{}) (err error) {
+	go func() {
+		mailbox := req.Client // only allow listing our own mailbox
+		mailbox.RecentThreads(time.Unix(0, 0), 10, 0)
 	}()
 
 	return
