@@ -143,10 +143,23 @@ func (mb *Mailbox) Delete() error {
 	return err
 }
 
-func (mb *Mailbox) GetAllThreadMembers() ([]ThreadMember, error) {
-	members := []ThreadMember{}
-	err := PostgresDb.Select(&members, "select * from thread_members where mailbox_id = $1", mb.Id)
-	return members, err
+func (mb *Mailbox) GetAllThreadMembers() (members []ThreadMember, err error) {
+	members = []ThreadMember{}
+	err = PostgresDb.Select(&members, "select * from thread_members where mailbox_id = $1", mb.Id)
+	return
+}
+
+func (mb *Mailbox) RecentThreads(lastUpdated time.Time, limit int, offset int) (threads []Thread, err error) {
+	threads = []Thread{}
+	err = PostgresDb.Select(&threads, `
+		select threads.* from thread_members
+		 inner join threads on thread_members.thread_id = threads.id
+		 where thread_members.mailbox_id = $1 
+		 and threads.updatedat > $2
+		 order by threads.updatedat desc
+		 limit $3 offset $4
+	`, mb.Id, lastUpdated, limit, offset)
+	return
 }
 
 func (mb Mailbox) PermissionThreadId() string {

@@ -135,6 +135,111 @@ func TestMailboxDelete(t *testing.T) {
 	}
 }
 
+func TestRecentThreads(t *testing.T) {
+	mb := Mailbox{DeviceId: "testbox"}
+	if err := mb.Insert(); err != nil {
+		t.Fatal("Error inserting mailbox to test recent threads")
+	}
+
+	threads := []Thread{
+		{Subject: "Game of Thrones"},
+		{Subject: "Mad Men"},
+		{Subject: "The Wicker Man"},
+	}
+
+	for i := range threads {
+		threads[i].Insert()
+		err := threads[i].AddMember(&ThreadMember{
+			MailboxId:         mb.Id,
+			AllowRead:         true,
+			AllowWrite:        true,
+			AllowNotification: true,
+		})
+		if err != nil {
+			t.Fatal("Error adding thread member:", err)
+		}
+	}
+
+	cutoffTime := time.Now()
+	recentThreads, err := mb.RecentThreads(time.Unix(0, 0), 100, 0)
+	if err != nil {
+		t.Fatal("Error calling mailbox.RecentThreads:", err)
+	}
+
+	if len(recentThreads) != len(threads) {
+		t.Fatal("Expected to find", len(threads), "thread but found", len(recentThreads))
+	}
+
+	for i, tr := range recentThreads {
+		inversePosition := len(threads) - i - 1
+		if tr.Subject != threads[inversePosition].Subject {
+			t.Fatal("Expected threads to be returned in order updated")
+		}
+	}
+
+	cutoffThreads, err := mb.RecentThreads(cutoffTime, 100, 0)
+	if err != nil {
+		t.Fatal("Error calling recent threads again:", err)
+	}
+
+	if len(cutoffThreads) > 0 {
+		t.Fatal("Expected no threads to be past cutoff, but found", len(cutoffThreads))
+	}
+
+	threadToUpdate := threads[0]
+	message := Message{
+		ThreadId:        threadToUpdate.Id,
+		SenderMailboxId: mb.Id,
+		Topic:           "test-message",
+		Body:            "Bump me to the top",
+		Labels:          []byte("{}"),
+		Payload:         []byte("{}"),
+	}
+
+	if err := message.Insert(); err != nil {
+		t.Fatal("Error inserting message:", err)
+	}
+
+	cutoffThreads, err = mb.RecentThreads(cutoffTime, 100, 0)
+	if err != nil {
+		t.Fatal("Error calling recent threads after message save:", err)
+	}
+
+	if len(cutoffThreads) != 1 {
+		t.Fatal("Expected 1 updated thread but found", len(cutoffThreads))
+	}
+
+	if cutoffThreads[0].Subject != threadToUpdate.Subject {
+		t.Fatal("First thread returned was not most recently updated")
+	}
+
+	recentThreads, err = mb.RecentThreads(time.Unix(0, 0), 1, 0)
+	if len(recentThreads) != 1 {
+		t.Fatal("Expected 1 thread after limit but found", len(recentThreads))
+	}
+
+	if recentThreads[0].Subject != threadToUpdate.Subject {
+		t.Fatal("First thread returned when limiting was not most recently updated")
+	}
+
+	recentThreads, err = mb.RecentThreads(time.Unix(0, 0), 1, 1)
+	if len(recentThreads) != 1 {
+		t.Fatal("Limit broken after applying offset")
+	}
+
+	if recentThreads[0].Subject == threadToUpdate.Subject {
+		t.Fatal("Found same thread after offset")
+	}
+
+	for _, tr := range threads {
+		tr.Delete()
+	}
+
+	if err := mb.Delete(); err != nil {
+		t.Fatal("Error deleting mailbox:", err)
+	}
+}
+
 func TestCanMethods(t *testing.T) {
 	mb := Mailbox{}
 	if err := mb.Insert(); err != nil {
