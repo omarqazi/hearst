@@ -90,6 +90,9 @@ func (t *Thread) Delete() error {
 	tx.NamedExec(`
 		delete from threads where id = :id
 	`, t)
+	tx.NamedExec(`
+		delete from thread_members where thread_id = :id
+	`, t)
 	tx.Exec(fmt.Sprintf("drop sequence %s;", t.SequenceName()))
 	err := tx.Commit()
 	Stream.AnnounceEvent("thread-delete-"+t.Id, t)
