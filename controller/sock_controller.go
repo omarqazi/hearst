@@ -301,7 +301,50 @@ func (sc SockController) HandleListThreadMember(req SockRequest, responses chan 
 func (sc SockController) HandleListMailbox(req SockRequest, responses chan interface{}) (err error) {
 	go func() {
 		mailbox := req.Client // only allow listing our own mailbox
-		mailbox.RecentThreads(time.Unix(0, 0), 10, 0)
+		rid, hasRid := req.Request["rid"]
+		lastUpdated, hasLastUpdated := req.Request["last_updated"]
+		limit, hasLimit := req.Request["limit"]
+		offset, hasOffset := req.Request["offset"]
+
+		if !hasLastUpdated {
+			lastUpdated = "0"
+		}
+
+		if !hasLimit {
+			limit = "10"
+		}
+
+		if !hasOffset {
+			offset = "0"
+		}
+
+		lastUpdatedInt, updateIntErr := strconv.ParseInt(lastUpdated, 10, 64)
+		if updateIntErr != nil {
+			lastUpdatedInt = 0
+		}
+
+		limitInt, limitIntErr := strconv.Atoi(limit)
+		if limitIntErr != nil {
+			limitInt = 10
+		}
+
+		offsetInt, offsetIntErr := strconv.Atoi(offset)
+		if offsetIntErr != nil {
+			offsetInt = 0
+		}
+
+		lastUpdatedTime := time.Unix(lastUpdatedInt, 0)
+		recentThreads, rtErr := mailbox.RecentThreads(lastUpdatedTime, limitInt, offsetInt)
+		if rtErr != nil {
+			responses <- map[string]string{"error": "unable to get recent threads for mailbox", "mailbox_id": mailbox.Id, "rid": rid}
+		} else if hasRid {
+			responses <- map[string]interface{}{
+				"rid":     rid,
+				"payload": recentThreads,
+			}
+		} else {
+			responses <- recentThreads
+		}
 	}()
 
 	return
