@@ -3,6 +3,8 @@ addons:
 before_script:
   - go get .
   - go get bitbucket.org/liamstask/goose/cmd/goose
+  - apt-get update
+  - apt-get install -y postgresql-9.6-postgis-2.3
   - psql -c 'create database hearst;' -U postgres
   - psql -c 'create extension postgis;' -U postgres -d hearst
   - goose -env testing up
