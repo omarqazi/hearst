@@ -3,7 +3,7 @@ addons:
 before_script:
   - go get .
   - go get bitbucket.org/liamstask/goose/cmd/goose
-  - psql -c 'create database hearst;' -U postgres
+  - psql -c 'create database hearst; CREATE EXTENSION postgis;' -U postgres
   - goose -env testing up
 env:
   - HEARST_POSTGRES="dbname=hearst user=postgres sslmode=disable"
