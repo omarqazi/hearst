@@ -6,7 +6,6 @@ before_script:
   - sudo apt-get update
   - sudo apt-get install -y postgresql-9.6-postgis-2.3
   - psql -c 'create database hearst;' -U postgres
-  - psql -c 'create extension postgis;' -U postgres -d hearst
   - goose -env testing up
 env:
   - HEARST_POSTGRES="dbname=hearst user=postgres sslmode=disable"
