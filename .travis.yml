@@ -9,7 +9,7 @@ env:
   - HEARST_POSTGRES="dbname=hearst user=postgres sslmode=disable"
 language: go
 go:
-- 1.6
+- 1.11
 script: make test
 services:
   - redis-server
