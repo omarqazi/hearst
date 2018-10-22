@@ -1,4 +1,4 @@
-# Start with golang base image
+# Start with golang base image ye
 FROM golang:latest
 MAINTAINER Omar Qazi (omar@smick.co)
 
