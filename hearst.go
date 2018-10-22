@@ -5,12 +5,12 @@ import (
 	"net/http"
 )
 
-const startMessage = "Starting Hearst on port 8080..."
+const startMessage = "Starting Hearst on port "
 const errorMessage = "Error starting server:"
 const bindAddress = ":8080"
 
 func init() {
-	log.Println(startMessage)
+	log.Println(startMessage, bindAddress)
 }
 
 func main() {
